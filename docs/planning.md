@@ -62,8 +62,8 @@ Lo que queda es **mantenibilidad y base de calidad**:
 |---|---|
 | Archivos C# del backend | 106 |
 | Archivos más grandes | `SistemaEditor.vue` 3.752 líneas · `SistemasBackendGenerator.cs` 1.750 · `SistemaRuntime.vue` (runtime) 1.749 · `SistemasController.cs` 1.341 · `SistemasExportador.cs` ~1.200 |
-| Tests | 177 pruebas E2E locales (`pruebas-e2e/`, no versionadas). Ninguno dentro del repo todavía |
-| CI | No hay |
+| Tests | 96 en el repo (`tests/Backend.Tests`, corren en CI) + 177 E2E locales (`pruebas-e2e/`, no versionadas) |
+| CI | GitHub Actions en cada PR |
 | Warnings de compilación | 171 (nullability) |
 | `npm audit` | 0 vulnerabilidades (antes 11) |
 
@@ -135,11 +135,11 @@ cd frontend && npm install && npm run dev   # entrar con admin/admin
 | # | Problema |
 |---|---|
 | D1 | Archivos enormes que mezclan responsabilidades. `SistemasController` mezcla CRUD, consola SQL, export y manejo de procesos. `SistemaEditor.vue` tiene 4 pestañas completas en un solo archivo. |
-| D2 | Helpers duplicados (`ToSafeSqlName`, `ToKebab`, `MapSqlType`, `ToPascalCase`) en 4 o 5 archivos, y con pequeñas diferencias entre sí. |
+| ✅ D2 | Helpers duplicados (`ToSafeSqlName`, `ToKebab`, `MapSqlType`, `ToPascalCase`) en 4 o 5 archivos, y con pequeñas diferencias entre sí. |
 | D3 | El generador de backend escribe el código C# a partir de strings dentro de C#. Es difícil de leer y de mantener. |
 | D4 | `frontend/` y `frontend-runtime/` duplican layout, auth, utilidades y el runtime, y ya divergieron. |
 | D5 | Los gestores son `static` y hacen `new SystemBaseContext()` en cada método. No se pueden testear ni inyectar dependencias. |
-| D6 | No hay tests, ni CI, ni linter. Hay 171 warnings de nullability. |
+| D6 | ~~No hay tests ni CI~~ (resuelto en Fase 2). Falta linter. Hay 171 warnings de nullability. |
 
 ### 4.4 Limitaciones conocidas (decididas o pendientes de producto)
 
@@ -182,13 +182,13 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 | ✅ 1.10 | Invalidar el acceso de usuarios desactivados aunque tengan un token vigente (S11) | S | El token de un usuario desactivado recibe 401 |
 | ✅ 1.11 | Secreto JWT y usuario SQL propios por sistema generado, y `.gitignore` en lo generado (S10) | M | Un token de la fábrica no sirve en un sistema generado |
 
-### Fase 2 — Base de calidad
+### ✅ Fase 2 — Base de calidad (completa)
 
 | # | Tarea | Esf. | Criterio de terminado |
 |---|---|---|---|
-| 2.1 | Proyecto de tests del backend (xUnit + SQL Server en Docker) con tests de integración de lo crítico: auth/autorización, publicar, CRUD runtime | M | `dotnet test` en verde |
-| 2.2 | CI en GitHub Actions: build del backend, build de los dos frontends y tests | S | Cada PR muestra el check |
-| 2.3 | Unificar helpers en `Comun/` (`SqlNombres`, `Texto`) y borrar las copias | S | Una sola implementación de cada uno |
+| ✅ 2.1 | Proyecto de tests del backend (`tests/Backend.Tests`: xUnit + WebApplicationFactory + base temporal) con lo crítico: auth/autorización, publicar, datos, diseño | M | `dotnet test` en verde: 96 tests, ~8 s |
+| ✅ 2.2 | CI en GitHub Actions (`.github/workflows/ci.yml`): build y tests del backend con SQL Server efímero, build y `npm audit` de los dos frontends | S | Cada PR muestra el check |
+| ✅ 2.3 | Unificar helpers en `Comun/` (`NombresSql`, `Texto`) y borrar las copias | S | Una sola implementación de cada uno (11 copias eliminadas) |
 
 ### Fase 3 — Correctitud del pipeline
 
@@ -251,6 +251,6 @@ Cada arreglo de la Fase 1 se da por terminado cuando su prueba pasa en verde.
 
 ## 8. Próximo paso recomendado
 
-1. Mergear las dos ramas (0.1).
-2. **Fase 2:** llevar las pruebas al repo (tests de integración del backend) y agregar CI, para que cada PR se verifique solo.
-3. **Fase 4:** dividir `SistemasController` y `SistemaEditor.vue`, y unificar helpers duplicados, con la red de pruebas ya armada.
+1. Mergear en orden: `refactor/estructura-por-modulos` → `fix/autorizacion-admin-y-decimales` → `chore/fase-2-calidad` (0.1).
+2. **Fase 4:** dividir `SistemasController` (4.1) y `SistemaEditor.vue` (4.2) con la red de tests ya armada.
+3. **Fase 3 pendiente:** paginación del servidor en la UI del runtime (3.4) y renombrados en el diseño (L1).

@@ -12,6 +12,8 @@ Fábrica de sistemas: se diseñan entidades, campos y relaciones desde la web y,
 - `systems/`: sistemas generados (`systems/<slug>/backend`, `systems/<slug>/frontend`, `ports.json`). Ignorado por git.
 - `exports/`: ZIPs exportados. Ignorado por git.
 - `docs/`: documentación funcional.
+- `tests/Backend.Tests/`: tests de integración y unitarios del backend (xUnit).
+- `.github/workflows/ci.yml`: CI (build y tests del backend, build y auditoría de los frontends) en cada PR.
 
 Backend y frontend están organizados por módulo (Auth, Usuarios, Roles, Menu, Sistemas). Ver [docs/estructura.md](docs/estructura.md) para saber dónde va cada cosa.
 
@@ -64,6 +66,16 @@ npm run dev
 ```
 
 `http://localhost:5173` (si está ocupado, Vite usa el siguiente puerto libre; el backend acepta cualquier origen localhost).
+
+## Tests
+
+Requieren el SQL Server de `db-service/` levantado. Usan las credenciales de `backend/.env` (o `DB_SERVER`/`DB_USER`/`DB_PASSWORD`) y una base temporal `nodriza_test_<id>` que se crea y se borra en cada corrida: la base de desarrollo no se toca.
+
+```bash
+dotnet test tests/Backend.Tests
+```
+
+El CI de GitHub Actions corre lo mismo en cada PR (con un SQL Server efímero), además del build y `npm audit` de los dos frontends.
 
 ## Flujo
 

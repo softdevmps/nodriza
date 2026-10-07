@@ -21,11 +21,14 @@ backend/
 ├── sql/                    Scripts SQL para crear la base (los usa db-service/)
 ├── Comun/                  Lo que usan todos los módulos
 │   ├── AppController.cs        Clase base de los controllers (lee el usuario del token)
+│   ├── NombresSql.cs           Reglas de nombres seguros (tablas, columnas, rutas, schema del sistema)
+│   ├── Texto.cs                ToKebab / ToPascalCase (rutas y nombres de clases generados)
+│   ├── PuertosSistemas.cs      Puertos de los sistemas generados
 │   ├── BaseDeDatos/
 │   │   ├── SystemBaseContext.cs    DbContext de EF Core
-│   │   ├── DbSeeder.cs             Crea admin/admin, rol Admin y menús base al iniciar
+│   │   ├── DbSeeder.cs             Crea el admin (ADMIN_PASSWORD), rol Admin y menús base al iniciar
 │   │   └── Tablas/                 Una clase por tabla de la base (Usuarios, Roles, Systems, ...)
-│   └── Seguridad/              JWT: JwtService, AppConfig, UsuarioToken
+│   └── Seguridad/              JWT, política Admin, contraseñas y bloqueo por fuerza bruta
 └── Modulos/
     ├── Auth/
     ├── Usuarios/
@@ -106,6 +109,19 @@ Cuando se crea un menú hijo desde la pantalla Menu, el backend (`Modulos/Menu/M
 
 Tiene la misma estructura que `frontend/`, pero solo con lo que necesita un sistema generado: `comun/`, `modulos/auth`, `modulos/home` y `modulos/runtime` (la pantalla de datos). El generador (`Modulos/Sistemas/GeneradorFrontend`) la copia a `systems/<slug>/frontend`. Después reescribe dos archivos: `src/comun/api/axios.js` y `src/comun/config/frontend-config.json`. Si los movés, actualizá el generador.
 
+## Tests (`tests/Backend.Tests/`)
+
+```
+tests/Backend.Tests/
+├── Infra/          EntornoPruebas (API en memoria + base temporal) y Constructores (atajos para armar datos)
+├── Integracion/    Un archivo por área: Autenticacion, Autorizacion, Diseno, Publicacion, Datos
+└── Unitarios/      Reglas puras, sin base de datos
+```
+
+Los tests de integración levantan la API real en memoria contra una base `nodriza_test_<id>` que se crea y se borra sola. Verifican el estado real de la base, no solo la respuesta HTTP. Se corren con `dotnet test` (ver README) y en cada PR por CI.
+
+Antes de tocar algo con riesgo (publicación, permisos, datos) escribí o ajustá el test del área.
+
 ## Recetas
 
 **Agregar un endpoint a un módulo existente** (ej: Usuarios)
@@ -114,6 +130,11 @@ Tiene la misma estructura que `frontend/`, pero solo con lo que necesita un sist
 3. Agregar el método en `UsuariosGestor.cs`.
 4. Agregar la acción en `UsuariosController.cs`.
 5. En el frontend, agregar la llamada en `modulos/usuarios/usuario.service.js`.
+
+**Agregar un test de integración**
+1. Elegí el archivo del área en `tests/Backend.Tests/Integracion/` (o creá uno con `[Collection(ColeccionFabrica.Nombre)]`).
+2. Armá los datos con `Constructores` (`CrearSistemaAsync`, `PublicarAsync`, `UsuarioComunAsync`) y operá con `_e.Admin`.
+3. Verificá contra la base con `_e.EscalarAsync(...)`, además del status HTTP.
 
 **Crear un módulo nuevo** (ej: Clientes)
 - Backend: `Modulos/Clientes/` con `ClientesController.cs`, `ClientesGestor.cs` y `Modelos/`, y las rutas en `Routes.cs`.
