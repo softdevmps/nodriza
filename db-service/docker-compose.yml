@@ -1,0 +1,56 @@
+# SQL Server para SystemBase.
+# Las credenciales salen de backend/.env (una sola fuente de verdad):
+#   cd db-service
+#   docker compose --env-file ../backend/.env up -d
+#
+# - sqlserver: motor SQL Server 2022 (amd64, corre via Rosetta en Apple Silicon).
+# - sqlserver-init: one-shot que crea la base (DB_NAME), las tablas dbo y el schema sb.
+#   Los scripts son idempotentes, se puede re-ejecutar sin riesgo.
+
+name: systembase-db
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: systembase-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?Definir DB_PASSWORD en backend/.env}
+    ports:
+      - "${DB_PORT:-1433}:1433"
+    volumes:
+      - systembase-sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: systembase-sqlserver-init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      SA_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-systemBase}
+    volumes:
+      - ../backend/db:/scripts:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        sql() { /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$$SA_PASSWORD" -C -b "$$@"; }
+        sql -v DB_NAME="$$DB_NAME" -i /scripts/00_create_database.sql
+        sql -d "$$DB_NAME" -i /scripts/01_base_tables.sql,/scripts/systembase_metadata.sql
+        echo "SystemBase DB lista: $$DB_NAME"
+    restart: "no"
+
+volumes:
+  systembase-sqlserver-data:

@@ -1,0 +1,57 @@
+# =====================
+# Environment variables
+# =====================
+.env
+.env.*
+!.env.example
+
+# =====================
+# .NET / Visual Studio
+# =====================
+backend/bin/
+backend/obj/
+**/bin/
+**/obj/
+
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / VSCode
+.idea/
+.vscode/
+
+# =====================
+# .NET logs & temp
+# =====================
+*.log
+
+# =====================
+# Frontend (Node / Vite / Vue)
+# =====================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+
+# =====================
+# Frontend logs
+# =====================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =====================
+# OS files
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Misc
+# =====================
+*.swp
+*.tmp

@@ -1,0 +1,71 @@
+{
+  "system": {
+    "appTitle": "SystemBase",
+    "showSearch": true,
+    "showFilters": true,
+    "defaultItemsPerPage": 10,
+    "itemsPerPageOptions": [
+      10,
+      20,
+      50,
+      100
+    ],
+    "primaryColor": "#2563eb",
+    "secondaryColor": "#0ea5e9",
+    "density": "comfortable",
+    "fontFamily": "Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "uiMode": "enterprise",
+    "locale": "es-AR",
+    "currency": "ARS",
+    "authMode": "local",
+    "authBaseUrl": "http://localhost:5032/api/v1",
+    "seedAdminUser": "admin",
+    "seedAdminPassword": "admin",
+    "seedAdminEmail": "admin@local"
+  },
+  "entities": [],
+  "theme": {
+    "brand": {
+      "primary": "#1d4ed8",
+      "secondary": "#0ea5e9",
+      "accent": "#f97316"
+    },
+    "surface": "#ffffff",
+    "background": "#f8fafc",
+    "muted": "#64748b",
+    "border": "rgba(15,23,42,0.12)",
+    "radius": 16,
+    "shadow": "0 12px 30px rgba(15, 23, 42, 0.12)",
+    "fontBody": "Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "fontDisplay": "'Space Grotesk', Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "gradient": "linear-gradient(135deg, rgba(29,78,216,0.16), rgba(14,165,233,0.08) 45%, rgba(248,250,252,0.95))",
+    "patternOpacity": 0.06,
+    "headerBg": "rgba(255,255,255,0.9)",
+    "primarySoft": "rgba(29,78,216,0.12)",
+    "borderSoft": "rgba(15,23,42,0.08)",
+    "text": "#0f172a",
+    "textSoft": "#334155"
+  },
+  "themeDark": {
+    "brand": {
+      "primary": "#1d4ed8",
+      "secondary": "#0ea5e9",
+      "accent": "#f97316"
+    },
+    "surface": "#0f172a",
+    "background": "#0b1120",
+    "muted": "#94a3b8",
+    "border": "rgba(148,163,184,0.28)",
+    "borderSoft": "rgba(148,163,184,0.16)",
+    "radius": 16,
+    "shadow": "0 12px 30px rgba(15, 23, 42, 0.35)",
+    "fontBody": "Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "fontDisplay": "'Space Grotesk', Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "gradient": "linear-gradient(135deg, rgba(59,130,246,0.18), rgba(15,23,42,0.9) 55%)",
+    "patternOpacity": 0.12,
+    "headerBg": "rgba(15,23,42,0.85)",
+    "primarySoft": "rgba(59,130,246,0.18)",
+    "text": "#e2e8f0",
+    "textSoft": "#94a3b8"
+  }
+}

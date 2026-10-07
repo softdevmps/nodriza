@@ -1,0 +1,54 @@
+# =====================
+# Sistemas generados y exports (salida de la fábrica)
+# =====================
+systems/*
+!systems/.gitkeep
+exports/*
+!exports/.gitkeep
+
+# =====================
+# Environment variables
+# =====================
+.env
+.env.*
+!.env.example
+
+# =====================
+# .NET / Visual Studio
+# =====================
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / VSCode
+.idea/
+.vscode/
+
+# =====================
+# Logs & temp
+# =====================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.swp
+*.tmp
+
+# =====================
+# Frontend (Node / Vite / Vue)
+# =====================
+**/node_modules/
+**/dist/
+**/.vite/
+**/.cache/
+
+# =====================
+# OS files
+# =====================
+.DS_Store
+Thumbs.db
