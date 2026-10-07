@@ -87,6 +87,8 @@ namespace Backend.Modulos.Sistemas.Datos
 
         public static (bool Ok, string? Error, bool SinPermiso) Crear(int systemId, int entityId, Dictionary<string, JsonElement> data, int usuarioId)
         {
+            data = SinDistinguirMayusculas(data);
+
             using var context = new SystemBaseContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
@@ -157,6 +159,8 @@ namespace Backend.Modulos.Sistemas.Datos
 
         public static (bool Ok, string? Error, bool SinPermiso) Editar(int systemId, int entityId, string id, Dictionary<string, JsonElement> data, int usuarioId)
         {
+            data = SinDistinguirMayusculas(data);
+
             using var context = new SystemBaseContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
@@ -383,6 +387,18 @@ namespace Backend.Modulos.Sistemas.Datos
             }
 
             return id;
+        }
+
+        /// <summary>
+        /// Las columnas se reconocen sin importar mayúsculas: "email" y "Email" son la misma columna
+        /// (los clientes JSON suelen mandar camelCase). Antes una clave en otro formato se ignoraba en silencio.
+        /// </summary>
+        private static Dictionary<string, JsonElement> SinDistinguirMayusculas(Dictionary<string, JsonElement> data)
+        {
+            var resultado = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (clave, valor) in data)
+                resultado.TryAdd(clave, valor);
+            return resultado;
         }
 
         private const NumberStyles EstiloEntero = NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
