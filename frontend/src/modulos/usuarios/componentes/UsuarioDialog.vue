@@ -76,6 +76,7 @@
 
 <script>
 import usuarioService from '../usuario.service.js';
+import { mensajeError } from '../../../comun/utils/mensajeError.js';
 
 export default {
   props: {
@@ -145,7 +146,7 @@ export default {
       req.then(() => {
         this.$emit('guardado');
         this.cerrar();
-      });
+      }).catch(e => window.alert(mensajeError(e, 'No se pudo guardar el usuario.')));
     },
 
     cerrar() {

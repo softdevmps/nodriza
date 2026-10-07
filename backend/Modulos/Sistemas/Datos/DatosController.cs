@@ -11,14 +11,14 @@ namespace Backend.Modulos.Sistemas.Datos
     public class DatosController : AppController
     {
         [HttpGet(Routes.v1.Datos.Obtener)]
-        public IActionResult Obtener(int systemId, int entityId, [FromQuery] int? take)
+        public IActionResult Obtener(int systemId, int entityId, [FromQuery] int? take, [FromQuery] int? skip)
         {
             var usuario = UsuarioToken();
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var result = DatosGestor.Listar(systemId, entityId, take, usuario.UsuarioId);
-            return result.Ok ? Ok(result.Data) : BadRequest(result.Error);
+            var result = DatosGestor.Listar(systemId, entityId, take, skip, usuario.UsuarioId);
+            return result.Ok ? Ok(result.Data) : Fallo(result.Error, result.SinPermiso);
         }
 
         [HttpPost(Routes.v1.Datos.Crear)]
@@ -29,7 +29,7 @@ namespace Backend.Modulos.Sistemas.Datos
                 return Unauthorized();
 
             var result = DatosGestor.Crear(systemId, entityId, data, usuario.UsuarioId);
-            return result.Ok ? Ok() : BadRequest(result.Error);
+            return result.Ok ? Ok() : Fallo(result.Error, result.SinPermiso);
         }
 
         [HttpPut(Routes.v1.Datos.Editar)]
@@ -40,7 +40,7 @@ namespace Backend.Modulos.Sistemas.Datos
                 return Unauthorized();
 
             var result = DatosGestor.Editar(systemId, entityId, id, data, usuario.UsuarioId);
-            return result.Ok ? Ok() : BadRequest(result.Error);
+            return result.Ok ? Ok() : Fallo(result.Error, result.SinPermiso);
         }
 
         [HttpDelete(Routes.v1.Datos.Eliminar)]
@@ -51,7 +51,11 @@ namespace Backend.Modulos.Sistemas.Datos
                 return Unauthorized();
 
             var result = DatosGestor.Eliminar(systemId, entityId, id, usuario.UsuarioId);
-            return result.Ok ? Ok() : BadRequest(result.Error);
+            return result.Ok ? Ok() : Fallo(result.Error, result.SinPermiso);
         }
+    
+        // Sin permiso sobre la entidad → 403; cualquier otro problema de datos → 400.
+        private IActionResult Fallo(string? error, bool sinPermiso) =>
+            sinPermiso ? StatusCode(StatusCodes.Status403Forbidden, error) : BadRequest(error);
     }
 }

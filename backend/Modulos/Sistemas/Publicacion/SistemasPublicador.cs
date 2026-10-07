@@ -79,16 +79,34 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 }
             }
 
-            var script = BuildScript(schemaName, system.Entities);
+            var erroresRelaciones = ValidarRelaciones(system);
+            if (erroresRelaciones.Count > 0)
+                return Rechazar(context, system, erroresRelaciones);
+
+            // Cambios sobre tablas ya publicadas: se calculan antes de tocar nada.
+            var conn = context.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+                conn.Open();
+            var plan = MigracionEsquema.Calcular(conn, schemaName, system.Entities);
+            if (plan.Errores.Count > 0)
+                return Rechazar(context, system, plan.Errores);
 
             using var trx = context.Database.BeginTransaction();
             try
             {
-                context.Database.ExecuteSqlRaw(script);
+                context.Database.ExecuteSqlRaw(BuildScriptTablas(schemaName, system.Entities));
+                foreach (var sentencia in plan.Sentencias)
+                    context.Database.ExecuteSqlRaw(sentencia);
+                var indices = BuildScriptIndices(schemaName, system.Entities);
+                if (!string.IsNullOrWhiteSpace(indices))
+                    context.Database.ExecuteSqlRaw(indices);
 
                 AplicarRelaciones(context, schemaName, system);
                 CrearMenusSistema(context, system);
                 CrearPermisosSistema(context, system);
+                // AsignarPermisosAdmin consulta la base: los permisos nuevos tienen que estar guardados
+                // (dentro de la misma transacción); si no, en la primera publicación el Admin quedaba sin permisos.
+                context.SaveChanges();
                 AsignarPermisosAdmin(context, system.Id);
 
                 system.Status = "published";
@@ -102,7 +120,9 @@ namespace Backend.Modulos.Sistemas.Publicacion
                     Version = system.Version,
                     StartedAt = DateTime.UtcNow,
                     FinishedAt = DateTime.UtcNow,
-                    Log = $"Published to schema {schemaName}"
+                    Log = plan.Sentencias.Count > 0
+                        ? $"Published to schema {schemaName}. Cambios aplicados:\n{string.Join("\n", plan.Sentencias)}"
+                        : $"Published to schema {schemaName}"
                 };
 
                 context.SystemBuilds.Add(build);
@@ -113,35 +133,98 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 return new PublicarResult
                 {
                     Ok = true,
-                    Message = $"Sistema publicado en schema {schemaName}."
+                    Message = plan.Sentencias.Count > 0
+                        ? $"Sistema publicado en schema {schemaName}. Se aplicaron {plan.Sentencias.Count} cambios sobre tablas existentes."
+                        : $"Sistema publicado en schema {schemaName}."
                 };
+            }
+            catch (PublicacionException ex)
+            {
+                trx.Rollback();
+                context.ChangeTracker.Clear();
+                RegistrarBuildFallido(context, system, ex.Message);
+                return new PublicarResult { Ok = false, Message = "No se publicó: " + ex.Message };
             }
             catch (Exception ex)
             {
                 trx.Rollback();
+                context.ChangeTracker.Clear();
 
-                var build = new SystemBuilds
-                {
-                    SystemId = system.Id,
-                    Status = "failed",
-                    Version = system.Version,
-                    StartedAt = DateTime.UtcNow,
-                    FinishedAt = DateTime.UtcNow,
-                    Log = ex.Message
-                };
-
-                context.SystemBuilds.Add(build);
-                context.SaveChanges();
-
+                // El detalle técnico queda en el build; al cliente no se le devuelve el mensaje de SQL Server.
+                var build = RegistrarBuildFallido(context, system, ex.Message);
                 return new PublicarResult
                 {
                     Ok = false,
-                    Message = $"Error al publicar: {ex.Message}"
+                    Message = $"No se pudo publicar por un error inesperado de base de datos. No se aplicó ningún cambio. Detalle registrado en el build #{build}."
                 };
             }
         }
 
-        private static string BuildScript(string schemaName, IEnumerable<Entities> entities)
+        private static PublicarResult Rechazar(SystemBaseContext context, Systems system, List<string> errores)
+        {
+            RegistrarBuildFallido(context, system, string.Join("\n", errores));
+            return new PublicarResult
+            {
+                Ok = false,
+                Message = "No se publicó: " + string.Join(" ", errores)
+            };
+        }
+
+        private static int RegistrarBuildFallido(SystemBaseContext context, Systems system, string log)
+        {
+            var build = new SystemBuilds
+            {
+                SystemId = system.Id,
+                Status = "failed",
+                Version = system.Version,
+                StartedAt = DateTime.UtcNow,
+                FinishedAt = DateTime.UtcNow,
+                Log = log
+            };
+            context.SystemBuilds.Add(build);
+            context.SaveChanges();
+            return build.Id;
+        }
+
+        /// <summary>Relaciones publicables: tipo soportado, FK existente y del mismo tipo que la PK destino.</summary>
+        private static List<string> ValidarRelaciones(Systems system)
+        {
+            var errores = new List<string>();
+            var entidades = system.Entities.ToDictionary(e => e.Id);
+            foreach (var rel in system.Relations)
+            {
+                if (!entidades.TryGetValue(rel.SourceEntityId, out var origen) || !entidades.TryGetValue(rel.TargetEntityId, out var destino))
+                    continue;
+
+                var nombre = $"{origen.Name} → {destino.Name}";
+                if (!RelacionesSoportadas.Contains(rel.RelationType))
+                {
+                    errores.Add($"La relación {nombre} es {rel.RelationType}, que todavía no está soportada (solo ManyToOne y OneToOne).");
+                    continue;
+                }
+
+                var fk = origen.Fields.FirstOrDefault(f => string.Equals(f.ColumnName, rel.ForeignKey?.Trim(), StringComparison.OrdinalIgnoreCase));
+                var pkDestino = destino.Fields.FirstOrDefault(f => f.IsPrimaryKey);
+                if (fk == null)
+                    errores.Add($"La relación {nombre} usa la FK \"{rel.ForeignKey}\", que no es un campo de {origen.Name}.");
+                else if (pkDestino == null)
+                    errores.Add($"La relación {nombre} apunta a {destino.Name}, que no tiene clave primaria.");
+                else if (!string.Equals(fk.DataType, pkDestino.DataType, StringComparison.OrdinalIgnoreCase))
+                    errores.Add($"La relación {nombre}: la FK {fk.ColumnName} ({fk.DataType}) no es del mismo tipo que la clave de {destino.Name} ({pkDestino.DataType}).");
+            }
+            return errores;
+        }
+
+        /// <summary>Error de publicación con un mensaje apto para mostrarle al usuario.</summary>
+        private sealed class PublicacionException : Exception
+        {
+            public PublicacionException(string message) : base(message) { }
+        }
+
+        public static readonly HashSet<string> RelacionesSoportadas = new(StringComparer.OrdinalIgnoreCase) { "ManyToOne", "OneToOne" };
+
+        /// <summary>Crea el schema y las tablas que todavía no existen. Las existentes las ajusta MigracionEsquema.</summary>
+        private static string BuildScriptTablas(string schemaName, IEnumerable<Entities> entities)
         {
             var sb = new StringBuilder();
 
@@ -183,33 +266,30 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 sb.AppendLine(string.Join(",\n", columnLines));
                 sb.AppendLine("    );");
                 sb.AppendLine("END");
-                sb.AppendLine("ELSE");
-                sb.AppendLine("BEGIN");
-
-                foreach (var field in entity.Fields.OrderBy(f => f.SortOrder).ThenBy(f => f.Id))
-                {
-                    var colName = field.ColumnName;
-                    var colType = MapSqlType(field);
-                    var nullable = (field.IsIdentity || field.IsPrimaryKey) ? "NOT NULL" : "NULL";
-                    var identity = field.IsIdentity && field.DataType.Equals("int", StringComparison.OrdinalIgnoreCase)
-                        ? " IDENTITY(1,1)"
-                        : "";
-
-                    sb.AppendLine($"    IF COL_LENGTH('{qualified}', '{colName}') IS NULL");
-                    sb.AppendLine($"        ALTER TABLE {qualified} ADD [{colName}] {colType}{identity} {nullable};");
-                }
-
-                sb.AppendLine("END");
-
-                foreach (var field in entity.Fields.Where(f => f.IsUnique))
-                {
-                    var uxName = $"UX_{schemaName}_{tableName}_{field.ColumnName}";
-                    sb.AppendLine($"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{uxName}' AND object_id = OBJECT_ID('{qualified}'))");
-                    sb.AppendLine($"    CREATE UNIQUE INDEX [{uxName}] ON {qualified} ([{field.ColumnName}]);");
-                }
-
             }
 
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Índices únicos que falten. Si la columna acepta NULL, el índice es filtrado
+        /// (varios registros sin valor no cuentan como duplicados).
+        /// </summary>
+        private static string BuildScriptIndices(string schemaName, IEnumerable<Entities> entities)
+        {
+            var sb = new StringBuilder();
+            foreach (var entity in entities)
+            {
+                var qualified = $"[{schemaName}].[{entity.TableName}]";
+                foreach (var field in entity.Fields.Where(f => f.IsUnique && !f.IsPrimaryKey))
+                {
+                    var uxName = MigracionEsquema.NombreIndiceUnico(schemaName, entity.TableName, field.ColumnName);
+                    var nullable = !(field.Required || field.IsIdentity);
+                    var filtro = nullable ? $" WHERE [{field.ColumnName}] IS NOT NULL" : string.Empty;
+                    sb.AppendLine($"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '{uxName}' AND object_id = OBJECT_ID('{qualified}'))");
+                    sb.AppendLine($"    CREATE UNIQUE INDEX [{uxName}] ON {qualified} ([{field.ColumnName}]){filtro};");
+                }
+            }
             return sb.ToString();
         }
 
@@ -245,6 +325,15 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 if (constraintName.Length > 120)
                     constraintName = constraintName.Substring(0, 120);
 
+                // Datos existentes que no cumplirían la FK: mensaje claro en vez del error de SQL.
+                var huerfanos = context.Database.SqlQueryRaw<int>($@"
+SELECT COUNT(*) AS Value FROM [{schemaName}].[{sourceTable}] s
+WHERE s.[{fkColumn}] IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM [{schemaName}].[{targetTable}] t WHERE t.[{targetPk.ColumnName}] = s.[{fkColumn}])
+  AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = '{constraintName}' AND parent_object_id = OBJECT_ID('[{schemaName}].[{sourceTable}]'))").AsEnumerable().First();
+                if (huerfanos > 0)
+                    throw new PublicacionException($"No se puede crear la relación {source.Name} → {target.Name}: {huerfanos} registro(s) de {source.Name} tienen en {fkColumn} un valor que no existe en {target.Name}.");
+
                 var sql = $@"
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = '{constraintName}' AND parent_object_id = OBJECT_ID('[{schemaName}].[{sourceTable}]'))
 BEGIN
@@ -263,7 +352,7 @@ END";
             foreach (var entity in system.Entities)
             {
                 var title = entity.DisplayName ?? entity.Name;
-                var route = $"/s/{system.Slug}/{ToKebab(entity.Name)}";
+                var route = RutaMenu(system.Slug, entity.Name);
 
                 var exists = context.SystemMenus.Any(m =>
                     m.SystemId == system.Id &&
@@ -337,6 +426,9 @@ END";
             }
         }
 
+        /// <summary>Ruta del menú runtime de una entidad (la misma al crearlo y al borrarlo).</summary>
+        public static string RutaMenu(string slug, string nombreEntidad) => $"/s/{slug}/{ToKebab(nombreEntidad)}";
+
         private static string ActionLabel(string action)
         {
             return action switch
@@ -381,20 +473,7 @@ END";
             return string.IsNullOrWhiteSpace(result) ? "item" : result;
         }
 
-        private static string MapSqlType(Fields field)
-        {
-            var type = field.DataType?.ToLowerInvariant();
-            return type switch
-            {
-                "string" => $"NVARCHAR({(field.MaxLength.HasValue && field.MaxLength > 0 ? field.MaxLength.Value.ToString() : "255")})",
-                "int" => "INT",
-                "decimal" => $"DECIMAL({field.Precision ?? 18},{field.Scale ?? 2})",
-                "bool" => "BIT",
-                "datetime" => "DATETIME2",
-                "guid" => "UNIQUEIDENTIFIER",
-                _ => "NVARCHAR(255)"
-            };
-        }
+        private static string MapSqlType(Fields field) => MigracionEsquema.TipoSql(field);
 
         private static string? ToSafeSchemaName(string slug)
         {

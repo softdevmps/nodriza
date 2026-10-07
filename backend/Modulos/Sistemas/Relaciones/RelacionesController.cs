@@ -24,9 +24,9 @@ namespace Backend.Modulos.Sistemas.Relaciones
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var id = RelacionesGestor.Crear(systemId, request);
+            var (id, error) = RelacionesGestor.Crear(systemId, request);
             if (id == null)
-                return BadRequest("Relacion invalida.");
+                return BadRequest(new { message = error });
 
             return Ok(new { id });
         }
@@ -38,8 +38,10 @@ namespace Backend.Modulos.Sistemas.Relaciones
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var ok = RelacionesGestor.Editar(systemId, id, request);
-            return ok ? Ok() : NotFound();
+            var result = RelacionesGestor.Editar(systemId, id, request);
+            if (result.NotFound)
+                return NotFound();
+            return result.Ok ? Ok() : BadRequest(new { message = result.Error });
         }
     }
 }

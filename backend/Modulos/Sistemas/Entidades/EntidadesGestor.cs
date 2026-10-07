@@ -219,6 +219,17 @@ namespace Backend.Modulos.Sistemas.Entidades
                     DropRuntimeTable(context, schemaName, tableName);
                 }
 
+                // Su menú en el sidebar (y las asignaciones a roles) se va con la entidad.
+                var slug = context.Systems.Where(s => s.Id == systemId).Select(s => s.Slug).First();
+                var ruta = SistemasPublicador.RutaMenu(slug, entidad.Name);
+                var menus = context.SystemMenus
+                    .Include(m => m.Role)
+                    .Where(m => m.SystemId == systemId && m.Route == ruta)
+                    .ToList();
+                foreach (var menu in menus)
+                    menu.Role.Clear();
+                context.SystemMenus.RemoveRange(menus);
+
                 var fields = context.Fields.Where(f => f.EntityId == entidad.Id).ToList();
                 if (fields.Count > 0)
                     context.Fields.RemoveRange(fields);

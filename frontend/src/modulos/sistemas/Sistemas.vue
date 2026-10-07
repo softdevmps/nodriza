@@ -228,7 +228,7 @@ async function publicar(item) {
 }
 
 async function eliminarSistema(item) {
-  const ok = window.confirm(`Eliminar sistema ${item.name}? Esta accion no se puede deshacer.`)
+  const ok = window.confirm(`Eliminar sistema ${item.name}?\n\nSe quita de la fábrica y del menú. Sus tablas y datos se archivan en la base (sys_${item.slug}_eliminado_<fecha>) y su carpeta en systems/_eliminados/: no se pierde nada y el nombre queda libre.`)
   if (!ok) return
 
   try {

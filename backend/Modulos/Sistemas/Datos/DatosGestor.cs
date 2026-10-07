@@ -1,7 +1,9 @@
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.BaseDeDatos.Tablas;
@@ -28,16 +30,16 @@ namespace Backend.Modulos.Sistemas.Datos
             "active"
         };
 
-        public static (bool Ok, string? Error, List<Dictionary<string, object?>> Data) Listar(int systemId, int entityId, int? take, int usuarioId)
+        public static (bool Ok, string? Error, List<Dictionary<string, object?>> Data, bool SinPermiso) Listar(int systemId, int entityId, int? take, int? skip, int usuarioId)
         {
             using var context = new SystemBaseContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
-                return (false, meta.Error, new List<Dictionary<string, object?>>());
+                return (false, meta.Error, new List<Dictionary<string, object?>>(), false);
 
             if (!PermisosGestor.UsuarioTienePermiso(context, usuarioId, systemId, entityId, "view"))
-                return (false, "Sin permisos para ver.", new List<Dictionary<string, object?>>());
+                return (false, "Sin permisos para ver.", new List<Dictionary<string, object?>>(), true);
 
             var schemaName = meta.SchemaName;
             var entity = meta.Entity;
@@ -52,18 +54,18 @@ namespace Backend.Modulos.Sistemas.Datos
             {
                 sql.Append($" WHERE [{softDeleteField.ColumnName}] = 1");
             }
-            if (take.HasValue && take.Value > 0)
+            var desde = Math.Max(0, skip ?? 0);
+            if ((take.HasValue && take.Value > 0) || desde > 0)
             {
                 var pkColumn = pk?.ColumnName ?? fields.First().ColumnName;
-                sql.Append($" ORDER BY [{pkColumn}] OFFSET 0 ROWS FETCH NEXT {take.Value} ROWS ONLY");
+                sql.Append($" ORDER BY [{pkColumn}] OFFSET {desde} ROWS");
+                if (take.HasValue && take.Value > 0)
+                    sql.Append($" FETCH NEXT {take.Value} ROWS ONLY");
             }
 
             var result = new List<Dictionary<string, object?>>();
 
-            using var conn = context.Database.GetDbConnection();
-            if (conn.State != ConnectionState.Open)
-                conn.Open();
-
+            var conn = AbrirConexion(context);
             using var cmd = conn.CreateCommand();
             cmd.CommandText = sql.ToString();
 
@@ -80,19 +82,19 @@ namespace Backend.Modulos.Sistemas.Datos
                 result.Add(row);
             }
 
-            return (true, null, result);
+            return (true, null, result, false);
         }
 
-        public static (bool Ok, string? Error) Crear(int systemId, int entityId, Dictionary<string, JsonElement> data, int usuarioId)
+        public static (bool Ok, string? Error, bool SinPermiso) Crear(int systemId, int entityId, Dictionary<string, JsonElement> data, int usuarioId)
         {
             using var context = new SystemBaseContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
-                return (false, meta.Error);
+                return (false, meta.Error, false);
 
             if (!PermisosGestor.UsuarioTienePermiso(context, usuarioId, systemId, entityId, "create"))
-                return (false, "Sin permisos para crear.");
+                return (false, "Sin permisos para crear.", true);
 
             var schemaName = meta.SchemaName;
             var entity = meta.Entity;
@@ -122,20 +124,20 @@ namespace Backend.Modulos.Sistemas.Datos
                     }
 
                     if (field.Required || field.IsPrimaryKey)
-                        return (false, $"Campo requerido: {field.ColumnName}");
+                        return (false, $"Campo requerido: {field.ColumnName}", false);
                     continue;
                 }
 
                 var validation = ValidateAndConvert(field, element, field.Required || field.IsPrimaryKey);
                 if (!validation.Ok)
-                    return (false, validation.Error);
+                    return (false, validation.Error, false);
 
                 var value = validation.Value ?? DBNull.Value;
                 if (field.IsUnique && value != DBNull.Value)
                 {
                     var exists = ExistsByValue(context, schemaName, entity.TableName, field.ColumnName, value, null, null);
                     if (exists)
-                        return (false, $"Valor duplicado en {field.ColumnName}");
+                        return (false, $"Valor duplicado en {field.ColumnName}", false);
                 }
 
                 var paramName = $"@p{parameters.Count}";
@@ -145,38 +147,38 @@ namespace Backend.Modulos.Sistemas.Datos
             }
 
             if (columns.Count == 0)
-                return (false, "No hay columnas para insertar.");
+                return (false, "No hay columnas para insertar.", false);
 
             var sql = $"INSERT INTO [{schemaName}].[{entity.TableName}] ({string.Join(", ", columns)}) VALUES ({string.Join(", ", values)});";
 
-            ExecuteNonQuery(context, sql, parameters);
-            return (true, null);
+            var error = EjecutarTraduciendoErrores(context, sql, parameters, meta.SchemaName, entity, esBorrado: false);
+            return error == null ? (true, null, false) : (false, error, false);
         }
 
-        public static (bool Ok, string? Error) Editar(int systemId, int entityId, string id, Dictionary<string, JsonElement> data, int usuarioId)
+        public static (bool Ok, string? Error, bool SinPermiso) Editar(int systemId, int entityId, string id, Dictionary<string, JsonElement> data, int usuarioId)
         {
             using var context = new SystemBaseContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
-                return (false, meta.Error);
+                return (false, meta.Error, false);
 
             if (!PermisosGestor.UsuarioTienePermiso(context, usuarioId, systemId, entityId, "edit"))
-                return (false, "Sin permisos para editar.");
+                return (false, "Sin permisos para editar.", true);
 
             var schemaName = meta.SchemaName;
             var entity = meta.Entity;
             var fields = meta.Fields;
             var pk = meta.Pk;
             if (pk == null)
-                return (false, "Entidad sin PK.");
+                return (false, "Entidad sin PK.", false);
 
             var setParts = new List<string>();
             var parameters = new List<IDbDataParameter>();
 
             var pkValue = ConvertPrimaryKey(id, pk);
             if (pkValue == InvalidValue)
-                return (false, "Id invalido.");
+                return (false, "Id invalido.", false);
 
             foreach (var field in fields)
             {
@@ -189,14 +191,14 @@ namespace Backend.Modulos.Sistemas.Datos
 
                 var validation = ValidateAndConvert(field, element, field.Required);
                 if (!validation.Ok)
-                    return (false, validation.Error);
+                    return (false, validation.Error, false);
 
                 var value = validation.Value ?? DBNull.Value;
                 if (field.IsUnique && value != DBNull.Value)
                 {
                     var exists = ExistsByValue(context, schemaName, entity.TableName, field.ColumnName, value, pk, pkValue);
                     if (exists)
-                        return (false, $"Valor duplicado en {field.ColumnName}");
+                        return (false, $"Valor duplicado en {field.ColumnName}", false);
                 }
 
                 var paramName = $"@p{parameters.Count}";
@@ -205,62 +207,109 @@ namespace Backend.Modulos.Sistemas.Datos
             }
 
             if (setParts.Count == 0)
-                return (false, "No hay columnas para actualizar.");
+                return (false, "No hay columnas para actualizar.", false);
 
             var pkParam = $"@p{parameters.Count}";
             parameters.Add(CreateParameter(pkParam, pkValue));
 
             var sql = $"UPDATE [{schemaName}].[{entity.TableName}] SET {string.Join(", ", setParts)} WHERE [{pk.ColumnName}] = {pkParam};";
-            ExecuteNonQuery(context, sql, parameters);
-            return (true, null);
+            var error = EjecutarTraduciendoErrores(context, sql, parameters, schemaName, entity, esBorrado: false);
+            return error == null ? (true, null, false) : (false, error, false);
         }
 
-        public static (bool Ok, string? Error) Eliminar(int systemId, int entityId, string id, int usuarioId)
+        public static (bool Ok, string? Error, bool SinPermiso) Eliminar(int systemId, int entityId, string id, int usuarioId)
         {
             using var context = new SystemBaseContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
-                return (false, meta.Error);
+                return (false, meta.Error, false);
 
             if (!PermisosGestor.UsuarioTienePermiso(context, usuarioId, systemId, entityId, "delete"))
-                return (false, "Sin permisos para eliminar.");
+                return (false, "Sin permisos para eliminar.", true);
 
             var schemaName = meta.SchemaName;
             var entity = meta.Entity;
             var fields = meta.Fields;
             var pk = meta.Pk;
             if (pk == null)
-                return (false, "Entidad sin PK.");
+                return (false, "Entidad sin PK.", false);
 
             var pkValue = ConvertPrimaryKey(id, pk);
             if (pkValue == InvalidValue)
-                return (false, "Id invalido.");
+                return (false, "Id invalido.", false);
 
             var softDeleteField = GetSoftDeleteField(fields);
             if (softDeleteField != null)
             {
                 var sqlSoft = $"UPDATE [{schemaName}].[{entity.TableName}] SET [{softDeleteField.ColumnName}] = 0 WHERE [{pk.ColumnName}] = @p0;";
                 ExecuteNonQuery(context, sqlSoft, new[] { CreateParameter("@p0", pkValue) });
-                return (true, null);
+                return (true, null, false);
             }
 
             var blocking = TieneDependencias(context, systemId, schemaName, entityId, pkValue);
             if (blocking != null)
-                return (false, $"No se puede eliminar: hay registros relacionados en {blocking}");
+                return (false, $"No se puede eliminar: hay registros relacionados en {blocking}", false);
 
             var pkParam = "@p0";
             var sql = $"DELETE FROM [{schemaName}].[{entity.TableName}] WHERE [{pk.ColumnName}] = {pkParam};";
-            ExecuteNonQuery(context, sql, new[] { CreateParameter(pkParam, pkValue) });
-            return (true, null);
+            var error = EjecutarTraduciendoErrores(context, sql, new[] { CreateParameter(pkParam, pkValue) }, schemaName, entity, esBorrado: true);
+            return error == null ? (true, null, false) : (false, error, false);
+        }
+
+        /// <summary>
+        /// Abre (si hace falta) la conexión del contexto. No se debe hacer "using" sobre ella:
+        /// la libera el contexto, y destruirla rompía la consulta siguiente del mismo request.
+        /// </summary>
+        private static DbConnection AbrirConexion(SystemBaseContext context)
+        {
+            var conn = context.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                conn.Open();
+            return conn;
+        }
+
+        /// <summary>
+        /// Ejecuta un INSERT/UPDATE/DELETE y traduce los errores de datos conocidos a un mensaje
+        /// para el usuario (sin nombres internos de SQL Server). Devuelve null si salió bien.
+        /// </summary>
+        private static string? EjecutarTraduciendoErrores(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters, string schemaName, Entities entity, bool esBorrado)
+        {
+            try
+            {
+                ExecuteNonQuery(context, sql, parameters);
+                return null;
+            }
+            catch (SqlException ex) when (ex.Number is 2627 or 2601)
+            {
+                return "Ya existe un registro con ese valor (clave o campo único).";
+            }
+            catch (SqlException ex) when (ex.Number == 547)
+            {
+                if (esBorrado)
+                    return "No se puede eliminar: hay registros relacionados.";
+
+                var relacion = context.Relations
+                    .Where(r => r.SourceEntityId == entity.Id && r.ForeignKey != null)
+                    .AsEnumerable()
+                    .FirstOrDefault(r => ex.Message.Contains($"_{r.ForeignKey}\"", StringComparison.OrdinalIgnoreCase));
+                return relacion != null
+                    ? $"El valor de {relacion.ForeignKey} no corresponde a ningún registro existente."
+                    : "Un valor hace referencia a un registro que no existe.";
+            }
+            catch (SqlException ex) when (ex.Number is 8152 or 2628)
+            {
+                return "Un texto supera el largo máximo permitido.";
+            }
+            catch (SqlException ex) when (ex.Number is 8115 or 220 or 232)
+            {
+                return "Un número está fuera del rango permitido.";
+            }
         }
 
         private static void ExecuteNonQuery(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters)
         {
-            using var conn = context.Database.GetDbConnection();
-            if (conn.State != ConnectionState.Open)
-                conn.Open();
-
+            var conn = AbrirConexion(context);
             using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
             foreach (var p in parameters)
@@ -271,10 +320,7 @@ namespace Backend.Modulos.Sistemas.Datos
 
         private static object? ExecuteScalar(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters)
         {
-            using var conn = context.Database.GetDbConnection();
-            if (conn.State != ConnectionState.Open)
-                conn.Open();
-
+            var conn = AbrirConexion(context);
             using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;
             foreach (var p in parameters)
@@ -349,6 +395,10 @@ namespace Backend.Modulos.Sistemas.Datos
             if (element.ValueKind == JsonValueKind.Null || element.ValueKind == JsonValueKind.Undefined)
                 return DBNull.Value;
 
+            // Los formularios mandan "" para un número o fecha vacíos: es nulo, no un valor inválido.
+            if (type != "string" && element.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(element.GetString()))
+                return DBNull.Value;
+
             try
             {
                 return type switch
@@ -365,7 +415,7 @@ namespace Backend.Modulos.Sistemas.Datos
                     "bool" => element.ValueKind == JsonValueKind.True || element.ValueKind == JsonValueKind.False
                         ? element.GetBoolean()
                         : bool.Parse(element.GetString() ?? "false"),
-                    "datetime" => element.ValueKind == JsonValueKind.String ? DateTime.Parse(element.GetString() ?? string.Empty) : element.GetDateTime(),
+                    "datetime" => element.ValueKind == JsonValueKind.String ? ParsearFecha(element.GetString()!) : element.GetDateTime(),
                     "guid" => Guid.Parse(element.GetString() ?? string.Empty),
                     _ => InvalidValue
                 };
@@ -374,6 +424,22 @@ namespace Backend.Modulos.Sistemas.Datos
             {
                 return InvalidValue;
             }
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex ConZonaHoraria =
+            new(@"(Z|[+-]\d{2}:?\d{2})$", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        /// <summary>
+        /// Fecha con zona (Z u offset): se guarda en UTC, el mismo instante. Sin zona: se guarda tal cual
+        /// (hora "de pared" que cargó el usuario). Nunca depende de la zona horaria ni la cultura del servidor.
+        /// </summary>
+        private static DateTime ParsearFecha(string texto)
+        {
+            texto = texto.Trim();
+            if (ConZonaHoraria.IsMatch(texto))
+                return DateTimeOffset.Parse(texto, CultureInfo.InvariantCulture, DateTimeStyles.None).UtcDateTime;
+
+            return DateTime.SpecifyKind(DateTime.Parse(texto, CultureInfo.InvariantCulture, DateTimeStyles.None), DateTimeKind.Unspecified);
         }
 
         private static (bool Ok, object? Value, string? Error) ValidateAndConvert(Fields field, JsonElement element, bool required)
@@ -496,6 +562,8 @@ namespace Backend.Modulos.Sistemas.Datos
                 ParameterName = name,
                 Value = value ?? DBNull.Value
             };
+            if (value is DateTime)
+                param.SqlDbType = SqlDbType.DateTime2;
 
             return param;
         }

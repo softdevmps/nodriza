@@ -1,3 +1,4 @@
+using Backend.Comun.Seguridad;
 using Microsoft.EntityFrameworkCore;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.BaseDeDatos.Tablas;
@@ -54,17 +55,21 @@ namespace Backend.Modulos.Usuarios
             };
         }
 
-        public static bool Crear(UsuarioCreateRequest request)
+        public static (bool Ok, string? Error) Crear(UsuarioCreateRequest request)
         {
             using var context = new SystemBaseContext();
 
+            var error = PoliticaContrasenas.Validar(request.Password) ?? Validar(context, null, request.Username, request.Email, request.RolId);
+            if (error != null)
+                return (false, error);
+
             var usuario = new Tablas.Usuarios
             {
-                Username = request.Username,
-                Email = request.Email,
+                Username = request.Username.Trim(),
+                Email = request.Email.Trim(),
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                Nombre = request.Nombre,
-                Apellido = request.Apellido,
+                Nombre = request.Nombre.Trim(),
+                Apellido = request.Apellido.Trim(),
                 RolId = request.RolId,
                 Activo = true,
                 FechaCreacion = DateTime.UtcNow
@@ -73,21 +78,27 @@ namespace Backend.Modulos.Usuarios
             context.Usuarios.Add(usuario);
             context.SaveChanges();
 
-            return true;
+            return (true, null);
         }
 
-        public static bool Editar(int id, UsuarioUpdateRequest request)
+        public static (bool Ok, bool NotFound, string? Error) Editar(int id, UsuarioUpdateRequest request)
         {
             using var context = new SystemBaseContext();
 
             var usuario = context.Usuarios.FirstOrDefault(u => u.Id == id);
             if (usuario == null)
-                return false;
+                return (false, true, null);
 
-            usuario.Username = request.Username;
-            usuario.Email = request.Email;
-            usuario.Nombre = request.Nombre;
-            usuario.Apellido = request.Apellido;
+            var error = Validar(context, id, request.Username, request.Email, request.RolId);
+            if (error == null && !string.IsNullOrWhiteSpace(request.Password))
+                error = PoliticaContrasenas.Validar(request.Password);
+            if (error != null)
+                return (false, false, error);
+
+            usuario.Username = request.Username.Trim();
+            usuario.Email = request.Email.Trim();
+            usuario.Nombre = request.Nombre.Trim();
+            usuario.Apellido = request.Apellido.Trim();
             usuario.RolId = request.RolId;
 
             if (!string.IsNullOrWhiteSpace(request.Password))
@@ -96,7 +107,21 @@ namespace Backend.Modulos.Usuarios
             }
 
             context.SaveChanges();
-            return true;
+            return (true, false, null);
+        }
+
+        /// <summary>Username y email únicos (ignorando al propio usuario) y rol existente.</summary>
+        private static string? Validar(SystemBaseContext context, int? idPropio, string username, string email, int rolId)
+        {
+            username = username.Trim();
+            email = email.Trim();
+            if (context.Usuarios.Any(u => u.Id != idPropio && u.Username == username))
+                return "Ya existe un usuario con ese nombre de usuario.";
+            if (context.Usuarios.Any(u => u.Id != idPropio && u.Email == email))
+                return "Ya existe un usuario con ese email.";
+            if (!context.Roles.Any(r => r.Id == rolId))
+                return "El rol elegido no existe.";
+            return null;
         }
 
         public static bool CambiarEstado(int id, bool activo)

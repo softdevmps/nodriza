@@ -1,3 +1,5 @@
+using Backend.Modulos.Sistemas.Publicacion;
+using Microsoft.EntityFrameworkCore;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.BaseDeDatos.Tablas;
 using Backend.Modulos.Sistemas.Relaciones.Modelos;
@@ -7,14 +9,6 @@ namespace Backend.Modulos.Sistemas.Relaciones
 {
     public static class RelacionesGestor
     {
-        private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "OneToMany",
-            "ManyToOne",
-            "OneToOne",
-            "ManyToMany"
-        };
-
         public static List<RelacionResponse> ObtenerPorSistema(int systemId)
         {
             using var context = new SystemBaseContext();
@@ -36,29 +30,29 @@ namespace Backend.Modulos.Sistemas.Relaciones
                 .ToList();
         }
 
-        public static int? Crear(int systemId, RelacionCreateRequest request)
+        public static (int? Id, string? Error) Crear(int systemId, RelacionCreateRequest request)
         {
-            if (!AllowedTypes.Contains(request.RelationType))
-                return null;
-
             using var context = new SystemBaseContext();
 
-            var systemExists = context.Systems.Any(s => s.Id == systemId);
-            if (!systemExists)
-                return null;
+            if (!context.Systems.Any(s => s.Id == systemId))
+                return (null, "Sistema no encontrado.");
 
-            var source = context.Entities.FirstOrDefault(e => e.Id == request.SourceEntityId && e.SystemId == systemId);
-            var target = context.Entities.FirstOrDefault(e => e.Id == request.TargetEntityId && e.SystemId == systemId);
+            var source = context.Entities.Include(e => e.Fields).FirstOrDefault(e => e.Id == request.SourceEntityId && e.SystemId == systemId);
+            var target = context.Entities.Include(e => e.Fields).FirstOrDefault(e => e.Id == request.TargetEntityId && e.SystemId == systemId);
             if (source == null || target == null)
-                return null;
+                return (null, "Las dos entidades tienen que pertenecer a este sistema.");
+
+            var error = Validar(request.RelationType, request.ForeignKey, source, target);
+            if (error != null)
+                return (null, error);
 
             var relation = new Relations
             {
                 SystemId = systemId,
                 SourceEntityId = request.SourceEntityId,
                 TargetEntityId = request.TargetEntityId,
-                RelationType = request.RelationType,
-                ForeignKey = request.ForeignKey?.Trim(),
+                RelationType = NormalizarTipo(request.RelationType),
+                ForeignKey = request.ForeignKey.Trim(),
                 InverseProperty = request.InverseProperty?.Trim(),
                 CascadeDelete = request.CascadeDelete,
                 CreatedAt = DateTime.UtcNow
@@ -67,27 +61,56 @@ namespace Backend.Modulos.Sistemas.Relaciones
             context.Relations.Add(relation);
             context.SaveChanges();
 
-            return relation.Id;
+            return (relation.Id, null);
         }
 
-        public static bool Editar(int systemId, int id, RelacionUpdateRequest request)
+        public static (bool Ok, bool NotFound, string? Error) Editar(int systemId, int id, RelacionUpdateRequest request)
         {
-            if (!AllowedTypes.Contains(request.RelationType))
-                return false;
-
             using var context = new SystemBaseContext();
 
             var relation = context.Relations.FirstOrDefault(r => r.Id == id && r.SystemId == systemId);
             if (relation == null)
-                return false;
+                return (false, true, null);
 
-            relation.RelationType = request.RelationType;
-            relation.ForeignKey = request.ForeignKey?.Trim();
+            var source = context.Entities.Include(e => e.Fields).First(e => e.Id == relation.SourceEntityId);
+            var target = context.Entities.Include(e => e.Fields).First(e => e.Id == relation.TargetEntityId);
+            var error = Validar(request.RelationType, request.ForeignKey, source, target);
+            if (error != null)
+                return (false, false, error);
+
+            relation.RelationType = NormalizarTipo(request.RelationType);
+            relation.ForeignKey = request.ForeignKey.Trim();
             relation.InverseProperty = request.InverseProperty?.Trim();
             relation.CascadeDelete = request.CascadeDelete;
 
             context.SaveChanges();
-            return true;
+            return (true, false, null);
         }
-    }
+
+        /// <summary>
+        /// Solo tipos que se publican de verdad (ManyToOne, OneToOne); la FK tiene que ser un campo
+        /// de la entidad origen del mismo tipo que la clave primaria de la entidad destino.
+        /// </summary>
+        private static string? Validar(string tipo, string foreignKey, Entities source, Entities target)
+        {
+            if (!SistemasPublicador.RelacionesSoportadas.Contains(tipo))
+                return $"Tipo de relación no soportado: {tipo}. Por ahora solo ManyToOne y OneToOne.";
+
+            var fk = source.Fields.FirstOrDefault(f => string.Equals(f.ColumnName, foreignKey?.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (fk == null)
+                return $"La FK \"{foreignKey}\" no es un campo de {source.Name}.";
+
+            var pk = target.Fields.FirstOrDefault(f => f.IsPrimaryKey);
+            if (pk == null)
+                return $"{target.Name} no tiene clave primaria.";
+
+            if (!string.Equals(fk.DataType, pk.DataType, StringComparison.OrdinalIgnoreCase))
+                return $"La FK {fk.ColumnName} ({fk.DataType}) tiene que ser del mismo tipo que la clave de {target.Name} ({pk.DataType}).";
+
+            return null;
+        }
+
+        private static string NormalizarTipo(string tipo) =>
+            SistemasPublicador.RelacionesSoportadas.First(t => string.Equals(t, tipo, StringComparison.OrdinalIgnoreCase));
+}
 }

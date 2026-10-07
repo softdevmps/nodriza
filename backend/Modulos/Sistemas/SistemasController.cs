@@ -29,10 +29,12 @@ namespace Backend.Modulos.Sistemas
         private static readonly ConcurrentDictionary<int, Process> FrontendProcesses = new();
         private static readonly HttpClient Http = new();
         private readonly IWebHostEnvironment _env;
+        private readonly ILogger<SistemasController> _logger;
 
-        public SistemasController(IWebHostEnvironment env)
+        public SistemasController(IWebHostEnvironment env, ILogger<SistemasController> logger)
         {
             _env = env;
+            _logger = logger;
         }
 
         [HttpGet(Routes.v1.Sistemas.Obtener)]
@@ -85,17 +87,26 @@ namespace Backend.Modulos.Sistemas
         [HttpDelete(Routes.v1.Sistemas.Eliminar)]
         public IActionResult Eliminar(int id)
         {
+            var sistema = SistemasGestor.ObtenerPorId(id);
+            if (sistema == null)
+                return NotFound();
+
+            // Los procesos generados tienen archivos abiertos en la carpeta que se va a archivar.
+            TryStopTrackedProcess(BackendProcesses, id);
+            TryStopTrackedProcess(FrontendProcesses, id);
+
             var result = SistemasGestor.Eliminar(id);
             if (result.NotFound)
                 return NotFound();
 
             if (!result.Ok)
-                return BadRequest(new { message = $"No se pudo eliminar el sistema. {result.Error}" });
+            {
+                _logger.LogError("No se pudo eliminar el sistema {Id}: {Error}", id, result.Error);
+                return BadRequest(new { message = "No se pudo eliminar el sistema. No se aplicó ningún cambio." });
+            }
 
-            TryStopTrackedProcess(BackendProcesses, id);
-            TryStopTrackedProcess(FrontendProcesses, id);
-
-            return Ok();
+            var carpetaArchivada = ArchivarCarpetaSistema(sistema.Slug);
+            return Ok(new { schemaArchivado = result.SchemaArchivado, carpetaArchivada });
         }
 
         [Authorize(Policy = Politicas.Admin)]
@@ -1320,6 +1331,33 @@ ORDER BY src_t.name, src_c.name;";
 
             var packageJsonPath = Path.Combine(frontendPath, "package.json");
             return !System.IO.File.Exists(packageJsonPath);
+        }
+
+        /// <summary>
+        /// Mueve systems/&lt;slug&gt; a systems/_eliminados/&lt;slug&gt;_&lt;fecha&gt;: el código generado (y lo
+        /// que se haya escrito a mano) no se pierde y el slug queda libre. Devuelve la ruta relativa o null.
+        /// </summary>
+        private string? ArchivarCarpetaSistema(string slug)
+        {
+            var repoRoot = Directory.GetParent(_env.ContentRootPath)?.FullName ?? _env.ContentRootPath;
+            var systemsRoot = Path.Combine(repoRoot, "systems");
+            var origen = Path.Combine(systemsRoot, slug);
+            if (!Directory.Exists(origen))
+                return null;
+
+            var nombre = $"{slug}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+            var destino = Path.Combine(systemsRoot, "_eliminados", nombre);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(destino)!);
+                Directory.Move(origen, destino);
+                return Path.Combine("systems", "_eliminados", nombre);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo archivar la carpeta del sistema {Slug}", slug);
+                return null;
+            }
         }
 
         private static void TryStopTrackedProcess(ConcurrentDictionary<int, Process> processes, int id)

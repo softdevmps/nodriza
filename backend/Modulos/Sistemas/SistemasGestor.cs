@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.BaseDeDatos.Tablas;
@@ -123,17 +124,20 @@ namespace Backend.Modulos.Sistemas
             return true;
         }
 
-        public static (bool Ok, bool NotFound, string? Error) Eliminar(int id)
+        public static (bool Ok, bool NotFound, string? Error, string? SchemaArchivado) Eliminar(int id)
         {
             using var context = new SystemBaseContext();
 
             var sistema = context.Systems.FirstOrDefault(s => s.Id == id);
             if (sistema == null)
-                return (false, true, null);
+                return (false, true, null, null);
 
             using var trx = context.Database.BeginTransaction();
             try
             {
+                // Los datos no se borran: el schema se archiva con otro nombre y el slug queda libre.
+                var schemaArchivado = ArchivarSchema(context, sistema.Slug);
+
                 var entityIds = context.Entities
                     .Where(e => e.SystemId == id)
                     .Select(e => e.Id)
@@ -183,30 +187,56 @@ namespace Backend.Modulos.Sistemas
                 context.SaveChanges();
                 trx.Commit();
 
-                return (true, false, null);
+                return (true, false, null, schemaArchivado);
             }
             catch (Exception ex)
             {
                 trx.Rollback();
-                return (false, false, ex.Message);
+                return (false, false, ex.Message, null);
             }
         }
 
-        private static bool IsValidSlug(string slug)
+        /// <summary>
+        /// Mueve todas las tablas de sys_&lt;slug&gt; a sys_&lt;slug&gt;_eliminado_&lt;fecha&gt; y borra el schema original.
+        /// SQL Server no permite renombrar un schema: se crea el nuevo y se transfiere cada objeto.
+        /// Devuelve el nombre del schema archivado, o null si el sistema no estaba publicado.
+        /// </summary>
+        private static string? ArchivarSchema(SystemBaseContext context, string slug)
         {
-            if (string.IsNullOrWhiteSpace(slug))
-                return false;
+            var origen = $"sys_{slug}";
+            var destino = $"{origen}_eliminado_{DateTime.UtcNow:yyyyMMddHHmmss}";
 
-            if (char.IsDigit(slug[0]))
-                return false;
+            const string sql = @"
+DECLARE @origen SYSNAME = @p0, @destino SYSNAME = @p1;
+IF SCHEMA_ID(@origen) IS NULL
+BEGIN
+    SELECT CAST(0 AS BIT) AS Value;
+    RETURN;
+END
+-- EXEC(...) no admite funciones: las sentencias se arman en variables.
+DECLARE @crear NVARCHAR(400) = N'CREATE SCHEMA ' + QUOTENAME(@destino);
+EXEC sp_executesql @crear;
+DECLARE @mover NVARCHAR(MAX) = N'';
+SELECT @mover = @mover + N'ALTER SCHEMA ' + QUOTENAME(@destino) + N' TRANSFER ' + QUOTENAME(@origen) + N'.' + QUOTENAME(o.name) + N';'
+FROM sys.objects o
+WHERE o.schema_id = SCHEMA_ID(@origen) AND o.parent_object_id = 0;
+IF LEN(@mover) > 0 EXEC sp_executesql @mover;
+DECLARE @borrar NVARCHAR(400) = N'DROP SCHEMA ' + QUOTENAME(@origen);
+EXEC sp_executesql @borrar;
+SELECT CAST(1 AS BIT) AS Value;";
 
-            foreach (var ch in slug)
-            {
-                if (!(char.IsLetterOrDigit(ch) || ch == '_'))
-                    return false;
-            }
+            var archivado = context.Database
+                .SqlQueryRaw<bool>(sql, new SqlParameter("@p0", origen), new SqlParameter("@p1", destino))
+                .AsEnumerable()
+                .FirstOrDefault();
 
-            return true;
+            return archivado ? destino : null;
         }
+
+        // El slug termina en nombres de schema, carpetas y URLs: solo ASCII en minúsculas,
+        // dígitos y guion bajo, empezando con letra. Máximo 60 (deja lugar al sufijo de archivado).
+        private static readonly System.Text.RegularExpressions.Regex PatronSlug = new("^[a-z][a-z0-9_]{0,59}$");
+
+        private static bool IsValidSlug(string slug) => PatronSlug.IsMatch(slug);
     }
 }

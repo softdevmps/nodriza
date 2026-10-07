@@ -32,18 +32,18 @@ namespace Backend.Modulos.Usuarios
         [HttpPost(Routes.v1.Usuarios.Crear)]
         public IActionResult Crear([FromBody] UsuarioCreateRequest request)
         {
-            UsuariosGestor.Crear(request);
-            return Ok();
+            var (ok, error) = UsuariosGestor.Crear(request);
+            return ok ? Ok() : BadRequest(new { message = error });
         }
 
         [HttpPut(Routes.v1.Usuarios.Editar)]
         public IActionResult Editar(int id, [FromBody] UsuarioUpdateRequest request)
         {
-            var ok = UsuariosGestor.Editar(id, request);
-            if (!ok)
+            var result = UsuariosGestor.Editar(id, request);
+            if (result.NotFound)
                 return NotFound();
 
-            return Ok();
+            return result.Ok ? Ok() : BadRequest(new { message = result.Error });
         }
 
         [HttpPut(Routes.v1.Usuarios.Estado)]
