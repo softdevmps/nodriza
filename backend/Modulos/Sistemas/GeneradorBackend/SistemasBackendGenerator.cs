@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Backend.Comun;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.BaseDeDatos.Tablas;
 using Backend.Modulos.Sistemas.GeneradorBackend.Modelos;
@@ -94,6 +95,19 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
                 ? slug
                 : $"{schemaPrefix}_{slug}";
             var projectName = $"{ToPascalCase(slug)}.Backend";
+
+            // Todo lo que se escribe dentro del código generado tiene que ser un identificador
+            // o una ruta segura: un nombre con comillas inyectaría código C# que después corre
+            // en el servidor al "Iniciar backend". Se valida antes de escribir cualquier archivo.
+            var nombresInvalidos = ValidarNombresGenerables(system.Entities, relations, configByEntityId, systemConfig);
+            if (nombresInvalidos.Count > 0)
+            {
+                return new BackendGenerateResult
+                {
+                    Ok = false,
+                    Message = "No se puede generar el backend: hay nombres inválidos. " + string.Join(" ", nombresInvalidos)
+                };
+            }
 
             if (Directory.Exists(outputRoot))
             {
@@ -1519,7 +1533,7 @@ namespace Backend.Controllers
                     ForeignKeyColumn = fkField.ColumnName,
                     TargetTable = targetEntity.TableName,
                     TargetPkColumn = targetPk.ColumnName,
-                    TargetName = targetEntity.Name
+                    TargetName = EscapeString(targetEntity.Name)
                 });
             }
 
@@ -1590,9 +1604,67 @@ namespace Backend.Controllers
             };
         }
 
+        /// <summary>Escapa un texto para usarlo dentro de un literal string C# normal ("...").</summary>
         private static string EscapeString(string value)
         {
-            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            var sb = new StringBuilder(value.Length);
+            foreach (var ch in value)
+            {
+                switch (ch)
+                {
+                    case '\\': sb.Append("\\\\"); break;
+                    case '"': sb.Append("\\\""); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    default:
+                        if (char.IsControl(ch))
+                            sb.Append($"\\u{(int)ch:x4}");
+                        else
+                            sb.Append(ch);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        private static List<string> ValidarNombresGenerables(
+            IEnumerable<Entities> entities,
+            IEnumerable<Relations> relations,
+            Dictionary<int, BackendEntityConfig> configByEntityId,
+            BackendSystemConfig systemConfig)
+        {
+            var errores = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(systemConfig.ApiBase) && !NombresSql.EsRutaValida(systemConfig.ApiBase))
+                errores.Add($"ApiBase \"{systemConfig.ApiBase}\": {NombresSql.ReglaRuta}");
+
+            foreach (var entity in entities)
+            {
+                if (!NombresSql.EsIdentificadorValido(entity.TableName))
+                    errores.Add($"Tabla \"{entity.TableName}\" ({entity.Name}): {NombresSql.ReglaIdentificador}");
+
+                foreach (var field in entity.Fields)
+                {
+                    if (!NombresSql.EsIdentificadorValido(field.ColumnName))
+                        errores.Add($"Columna \"{field.ColumnName}\" de {entity.Name}: {NombresSql.ReglaIdentificador}");
+                }
+
+                if (configByEntityId.TryGetValue(entity.Id, out var cfg) &&
+                    !string.IsNullOrWhiteSpace(cfg.Route) &&
+                    !NombresSql.EsRutaValida(cfg.Route))
+                {
+                    errores.Add($"Ruta \"{cfg.Route}\" de {entity.Name}: {NombresSql.ReglaRuta}");
+                }
+            }
+
+            foreach (var relation in relations)
+            {
+                if (!string.IsNullOrWhiteSpace(relation.ForeignKey) && !NombresSql.EsIdentificadorValido(relation.ForeignKey))
+                    errores.Add($"FK \"{relation.ForeignKey}\": {NombresSql.ReglaIdentificador}");
+            }
+
+            return errores;
         }
 
         private static List<FieldConfig> BuildFieldConfigs(List<Fields> fields, BackendEntityConfig config)

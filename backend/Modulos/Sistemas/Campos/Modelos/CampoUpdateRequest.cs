@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Backend.Comun;
 
 namespace Backend.Modulos.Sistemas.Campos.Modelos
 {
@@ -8,6 +9,7 @@ namespace Backend.Modulos.Sistemas.Campos.Modelos
         public string Name { get; set; }
 
         [Required]
+        [IdentificadorSql]
         public string ColumnName { get; set; }
 
         [Required]

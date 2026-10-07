@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Backend.Comun;
 
 namespace Backend.Modulos.Sistemas.Relaciones.Modelos
 {
@@ -7,8 +8,11 @@ namespace Backend.Modulos.Sistemas.Relaciones.Modelos
         [Required]
         public string RelationType { get; set; }
 
-        public string? ForeignKey { get; set; }
+        [Required]
+        [IdentificadorSql]
+        public string ForeignKey { get; set; } = string.Empty;
 
+        [IdentificadorSql(Opcional = true)]
         public string? InverseProperty { get; set; }
 
         public bool CascadeDelete { get; set; }

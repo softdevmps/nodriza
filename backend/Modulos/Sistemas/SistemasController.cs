@@ -171,10 +171,16 @@ namespace Backend.Modulos.Sistemas
                     safeName = sistema.Slug;
                 var zipFileName = $"{safeName}.zip";
                 var zipPath = Path.Combine(exportsRoot, zipFileName);
-                if (System.IO.File.Exists(zipPath))
-                    System.IO.File.Delete(zipPath);
 
-                ZipFile.CreateFromDirectory(workspacePath, zipPath, CompressionLevel.Fastest, false);
+                // Un workspace puede tener solo el backend (o solo el frontend) generado:
+                // lo que falte se completa con las mismas fuentes que usa el export completo.
+                var complementos = new List<(string Origen, string Prefijo)>();
+                if (!Directory.Exists(Path.Combine(workspacePath, "backend")))
+                    complementos.Add((_env.ContentRootPath, "backend"));
+                if (!Directory.Exists(Path.Combine(workspacePath, "frontend")))
+                    complementos.Add((Path.Combine(repoRoot, "frontend-runtime"), "frontend"));
+
+                SistemasExportador.CrearZipSeguro(zipPath, workspacePath, complementos);
                 return PhysicalFile(zipPath, "application/zip", zipFileName);
             }
 

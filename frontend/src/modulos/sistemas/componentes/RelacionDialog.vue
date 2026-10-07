@@ -90,6 +90,7 @@
 <script>
 import campoService from '../campo.service.js'
 import relacionService from '../relacion.service.js'
+import { mensajeError } from '../../../comun/utils/mensajeError.js'
 
 export default {
   props: {
@@ -134,10 +135,9 @@ export default {
 
     relationTypes() {
       return [
+        // OneToMany y ManyToMany se quitaron hasta tener soporte completo (ver docs/planning.md)
         { title: 'ManyToOne', value: 'ManyToOne' },
-        { title: 'OneToMany', value: 'OneToMany' },
-        { title: 'OneToOne', value: 'OneToOne' },
-        { title: 'ManyToMany', value: 'ManyToMany' }
+        { title: 'OneToOne', value: 'OneToOne' }
       ]
     }
   },
@@ -221,11 +221,12 @@ export default {
         cascadeDelete: this.form.cascadeDelete
       }
 
-      if (!payload.sourceEntityId || !payload.targetEntityId || !payload.relationType) {
+      if (!payload.sourceEntityId || !payload.targetEntityId || !payload.relationType || !payload.foreignKey) {
         window.alert('Completa los datos requeridos.')
         return
       }
 
+      try {
       if (this.relacion) {
         await relacionService.editar(this.systemId, this.relacion.id, {
           relationType: payload.relationType,
@@ -235,6 +236,10 @@ export default {
         })
       } else {
         await relacionService.crear(this.systemId, payload)
+      }
+      } catch (e) {
+        window.alert(mensajeError(e, 'No se pudo guardar la relación.'))
+        return
       }
 
       this.$emit('guardado')

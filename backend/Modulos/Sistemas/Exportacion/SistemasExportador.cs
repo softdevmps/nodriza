@@ -346,7 +346,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                     if (File.Exists(zipPath))
                         File.Delete(zipPath);
 
-                    ZipFile.CreateFromDirectory(exportPath, zipPath, CompressionLevel.Fastest, false);
+                    CrearZipSeguro(zipPath, exportPath);
                 }
 
                 return new ExportResult
@@ -976,6 +976,61 @@ Modo: {modo}
             var version = ToSafeFolderSegment(system.Version ?? "0.0") ?? "0.0";
             var stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
             return $"{slug}_v{version}_{stamp}";
+        }
+
+        // Nunca se empaquetan secretos ni artefactos de compilación/dependencias.
+        private static readonly HashSet<string> CarpetasExcluidasZip = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "bin", "obj", "exports", "node_modules", "dist", ".vite", ".vscode", ".vs", ".idea", ".git"
+        };
+
+        private static bool ArchivoExcluidoZip(string nombre)
+        {
+            if (nombre.Equals(".env.example", StringComparison.OrdinalIgnoreCase))
+                return false;
+            return nombre.Equals(".env", StringComparison.OrdinalIgnoreCase)
+                || nombre.StartsWith(".env.", StringComparison.OrdinalIgnoreCase)
+                || nombre.Equals(".ds_store", StringComparison.OrdinalIgnoreCase)
+                || nombre.EndsWith(".user", StringComparison.OrdinalIgnoreCase)
+                || nombre.EndsWith(".log", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Crea un ZIP con el contenido de <paramref name="carpetaBase"/> sin secretos (.env)
+        /// ni carpetas de compilación. <paramref name="complementos"/> agrega carpetas extra
+        /// bajo un prefijo (ej.: la plantilla del frontend si el workspace no la tiene).
+        /// </summary>
+        public static void CrearZipSeguro(string zipPath, string carpetaBase, IEnumerable<(string Origen, string Prefijo)>? complementos = null)
+        {
+            if (File.Exists(zipPath))
+                File.Delete(zipPath);
+
+            using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+            AgregarCarpetaAlZip(zip, carpetaBase, string.Empty);
+            foreach (var (origen, prefijo) in complementos ?? Enumerable.Empty<(string, string)>())
+            {
+                if (Directory.Exists(origen))
+                    AgregarCarpetaAlZip(zip, origen, prefijo.Trim('/') + "/");
+            }
+        }
+
+        private static void AgregarCarpetaAlZip(ZipArchive zip, string carpeta, string prefijo)
+        {
+            foreach (var archivo in Directory.GetFiles(carpeta))
+            {
+                var nombre = Path.GetFileName(archivo);
+                if (ArchivoExcluidoZip(nombre))
+                    continue;
+                zip.CreateEntryFromFile(archivo, prefijo + nombre, CompressionLevel.Fastest);
+            }
+
+            foreach (var sub in Directory.GetDirectories(carpeta))
+            {
+                var nombre = Path.GetFileName(sub);
+                if (CarpetasExcluidasZip.Contains(nombre))
+                    continue;
+                AgregarCarpetaAlZip(zip, sub, $"{prefijo}{nombre}/");
+            }
         }
 
         private static void CopyDirectory(

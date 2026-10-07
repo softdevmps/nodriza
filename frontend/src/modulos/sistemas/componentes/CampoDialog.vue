@@ -19,7 +19,7 @@
               <v-text-field v-model="form.name" label="Nombre" prepend-inner-icon="mdi-format-title" />
             </v-col>
             <v-col cols="12" md="6">
-              <v-text-field v-model="form.columnName" label="ColumnName" prepend-inner-icon="mdi-table-column" />
+              <v-text-field v-model="form.columnName" label="ColumnName" prepend-inner-icon="mdi-table-column" :rules="[reglaIdentificadorSql]" />
             </v-col>
           </v-row>
 
@@ -84,6 +84,7 @@
 
 <script>
 import campoService from '../campo.service.js';
+import { mensajeError, reglaIdentificadorSql } from '../../../comun/utils/mensajeError.js';
 
 export default {
   props: {
@@ -162,6 +163,8 @@ export default {
         sortOrder: value.sortOrder ?? 1
       };
     },
+    reglaIdentificadorSql,
+
     guardar() {
       const payload = {
         name: this.form.name,
@@ -185,7 +188,7 @@ export default {
       req.then(() => {
         this.$emit('guardado');
         this.cerrar();
-      });
+      }).catch(e => window.alert(mensajeError(e, 'No se pudo guardar el campo.')));
     },
 
     cerrar() {
