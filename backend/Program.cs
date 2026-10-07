@@ -1,10 +1,12 @@
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Backend.Comun.BaseDeDatos;
+using Backend.Comun.Seguridad;
 // ===============================
 // 🔹 Cargar variables de entorno
 // ===============================
@@ -67,6 +69,17 @@ builder.Services
             )
         };
     });
+
+// ===============================
+// 🛡️ Autorización: política Admin por rol (ver Comun/Seguridad/PoliticaAdmin.cs)
+// ===============================
+builder.Services.AddScoped<IAuthorizationHandler, RequiereAdminHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(Politicas.Admin, policy => policy
+        .RequireAuthenticatedUser()
+        .AddRequirements(new RequiereAdmin()));
+});
 
 // ===============================
 // 🌐 Controllers + Swagger

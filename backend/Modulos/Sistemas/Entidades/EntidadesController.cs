@@ -42,6 +42,7 @@ namespace Backend.Modulos.Sistemas.Entidades
             return entidad == null ? NotFound() : Ok(entidad);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Entidades.Crear)]
         public IActionResult Crear(int systemId, [FromBody] EntidadCreateRequest request)
         {
@@ -55,6 +56,7 @@ namespace Backend.Modulos.Sistemas.Entidades
             return Ok(new { id });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPut(Routes.v1.Entidades.Editar)]
         public IActionResult Editar(int systemId, int id, [FromBody] EntidadUpdateRequest request)
         {
@@ -65,6 +67,7 @@ namespace Backend.Modulos.Sistemas.Entidades
             return ok ? Ok() : NotFound();
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpDelete(Routes.v1.Entidades.Eliminar)]
         public IActionResult Eliminar(int systemId, int id, [FromQuery] bool dropTable = false)
         {

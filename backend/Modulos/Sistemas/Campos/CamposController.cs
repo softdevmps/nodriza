@@ -1,3 +1,4 @@
+using Backend.Comun.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Comun;
@@ -16,6 +17,7 @@ namespace Backend.Modulos.Sistemas.Campos
             return Ok(campos);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Campos.Crear)]
         public IActionResult Crear(int systemId, int entityId, [FromBody] CampoCreateRequest request)
         {
@@ -29,6 +31,7 @@ namespace Backend.Modulos.Sistemas.Campos
             return Ok(new { id });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPut(Routes.v1.Campos.Editar)]
         public IActionResult Editar(int systemId, int entityId, int id, [FromBody] CampoUpdateRequest request)
         {

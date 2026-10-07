@@ -339,6 +339,9 @@ namespace Backend.Modulos.Sistemas.Datos
             return id;
         }
 
+        private const NumberStyles EstiloEntero = NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
+        private const NumberStyles EstiloDecimal = EstiloEntero | NumberStyles.AllowDecimalPoint;
+
         private static object ConvertValue(JsonElement element, Fields field)
         {
             var type = field.DataType.ToLowerInvariant();
@@ -351,8 +354,14 @@ namespace Backend.Modulos.Sistemas.Datos
                 return type switch
                 {
                     "string" => element.GetString() ?? string.Empty,
-                    "int" => element.ValueKind == JsonValueKind.Number ? element.GetInt32() : int.Parse(element.GetString() ?? "0"),
-                    "decimal" => element.ValueKind == JsonValueKind.Number ? element.GetDecimal() : decimal.Parse(element.GetString() ?? "0"),
+                    // Cultura invariante y sin separador de miles: con la cultura del servidor (es-*)
+                    // "10.50" se leía como 1050. Un formato ambiguo ("10,50", "1.000") se rechaza.
+                    "int" => element.ValueKind == JsonValueKind.Number
+                        ? element.GetInt32()
+                        : int.Parse(element.GetString() ?? "0", EstiloEntero, CultureInfo.InvariantCulture),
+                    "decimal" => element.ValueKind == JsonValueKind.Number
+                        ? element.GetDecimal()
+                        : decimal.Parse(element.GetString() ?? "0", EstiloDecimal, CultureInfo.InvariantCulture),
                     "bool" => element.ValueKind == JsonValueKind.True || element.ValueKind == JsonValueKind.False
                         ? element.GetBoolean()
                         : bool.Parse(element.GetString() ?? "false"),

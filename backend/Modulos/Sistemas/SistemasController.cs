@@ -56,6 +56,7 @@ namespace Backend.Modulos.Sistemas
             return sistema == null ? NotFound() : Ok(sistema);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.Crear)]
         public IActionResult Crear([FromBody] SistemaCreateRequest request)
         {
@@ -69,6 +70,7 @@ namespace Backend.Modulos.Sistemas
             return Ok(new { id });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPut(Routes.v1.Sistemas.Editar)]
         public IActionResult Editar(int id, [FromBody] SistemaUpdateRequest request)
         {
@@ -79,6 +81,7 @@ namespace Backend.Modulos.Sistemas
             return ok ? Ok() : NotFound();
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpDelete(Routes.v1.Sistemas.Eliminar)]
         public IActionResult Eliminar(int id)
         {
@@ -95,6 +98,7 @@ namespace Backend.Modulos.Sistemas
             return Ok();
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.Publicar)]
         public IActionResult Publicar(int id)
         {
@@ -102,6 +106,7 @@ namespace Backend.Modulos.Sistemas
             return result.Ok ? Ok(result) : BadRequest(result);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.Exportar)]
         public IActionResult Exportar(
             int id,
@@ -196,6 +201,7 @@ namespace Backend.Modulos.Sistemas
             return PhysicalFile(result.ZipPath, "application/zip", result.ZipFileName);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.EjecutarSql)]
         public IActionResult EjecutarSql(int id, [FromBody] SqlScriptExecuteRequest request)
         {
@@ -204,13 +210,6 @@ namespace Backend.Modulos.Sistemas
 
             if (!ModelState.IsValid)
                 return BadRequest(new { message = "Script SQL invalido." });
-
-            var usuario = UsuarioToken();
-            if (usuario.UsuarioId == 0)
-                return Unauthorized();
-
-            if (!IsAdminUser(usuario.UsuarioId))
-                return Forbid();
 
             var sistema = SistemasGestor.ObtenerPorId(id);
             if (sistema == null)
@@ -266,6 +265,7 @@ namespace Backend.Modulos.Sistemas
             }
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.GenerarBackend)]
         public IActionResult GenerarBackend(int id, [FromQuery] bool overwrite = false)
         {
@@ -288,6 +288,7 @@ namespace Backend.Modulos.Sistemas
             return Ok(result);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.GenerarFrontend)]
         public IActionResult GenerarFrontend(int id, [FromQuery] bool overwrite = false)
         {
@@ -309,6 +310,7 @@ namespace Backend.Modulos.Sistemas
             return BadRequest(result);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.IniciarBackend)]
         public async Task<IActionResult> IniciarBackend(int id)
         {
@@ -391,6 +393,7 @@ namespace Backend.Modulos.Sistemas
             return Ok(new { status = "started", message = "Backend iniciando..." });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.DetenerBackend)]
         public IActionResult DetenerBackend(int id)
         {
@@ -429,6 +432,7 @@ namespace Backend.Modulos.Sistemas
             return Ok(new { online });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpGet(Routes.v1.Sistemas.LogsBackend)]
         public IActionResult LogsBackend(int id, [FromQuery] long after = 0, [FromQuery] int take = 200)
         {
@@ -441,6 +445,7 @@ namespace Backend.Modulos.Sistemas
             return Ok(new { items, lastId });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.IniciarFrontend)]
         public async Task<IActionResult> IniciarFrontend(int id)
         {
@@ -533,6 +538,7 @@ namespace Backend.Modulos.Sistemas
             return Ok(new { status = "started", message = "Frontend iniciando...", port });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.DetenerFrontend)]
         public IActionResult DetenerFrontend(int id)
         {
@@ -571,6 +577,7 @@ namespace Backend.Modulos.Sistemas
             return Ok(new { online });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpGet(Routes.v1.Sistemas.LogsFrontend)]
         public IActionResult LogsFrontend(int id, [FromQuery] long after = 0, [FromQuery] int take = 200)
         {
@@ -626,18 +633,6 @@ namespace Backend.Modulos.Sistemas
             {
                 return false;
             }
-        }
-
-        private static bool IsAdminUser(int usuarioId)
-        {
-            using var context = new SystemBaseContext();
-
-            return context.Usuarios
-                .Include(u => u.Rol)
-                .Any(u =>
-                    u.Id == usuarioId &&
-                    (u.Username != null && u.Username.ToLower() == "admin" ||
-                     (u.Rol != null && u.Rol.Nombre.ToLower() == "admin")));
         }
 
         private static string NormalizeSqlScript(string? script)

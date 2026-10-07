@@ -1,3 +1,4 @@
+using Backend.Comun.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Comun;
@@ -6,7 +7,7 @@ using Backend.Modulos.Sistemas.GeneradorBackend.Modelos;
 namespace Backend.Modulos.Sistemas.GeneradorBackend
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = Politicas.Admin)]
     public class BackendConfigController : AppController
     {
         [HttpGet(Routes.v1.Backend.ObtenerConfig)]

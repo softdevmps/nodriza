@@ -1,3 +1,4 @@
+using Backend.Comun.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Comun;
@@ -7,7 +8,7 @@ using Backend.Modulos.Usuarios.Modelos;
 namespace Backend.Modulos.Usuarios
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = Politicas.Admin)]
     public class UsuariosController : AppController
     {
         [HttpGet(Routes.v1.Usuarios.Obtener)]

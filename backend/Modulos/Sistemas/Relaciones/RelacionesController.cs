@@ -1,3 +1,4 @@
+using Backend.Comun.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Comun;
@@ -16,6 +17,7 @@ namespace Backend.Modulos.Sistemas.Relaciones
             return Ok(relaciones);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Relaciones.Crear)]
         public IActionResult Crear(int systemId, [FromBody] RelacionCreateRequest request)
         {
@@ -29,6 +31,7 @@ namespace Backend.Modulos.Sistemas.Relaciones
             return Ok(new { id });
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPut(Routes.v1.Relaciones.Editar)]
         public IActionResult Editar(int systemId, int id, [FromBody] RelacionUpdateRequest request)
         {

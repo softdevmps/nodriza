@@ -1,3 +1,4 @@
+using Backend.Comun.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Comun;
@@ -6,7 +7,7 @@ using Backend.Modulos.Menu.Modelos;
 namespace Backend.Modulos.Menu
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = Politicas.Admin)]
     public class MenuAdminController : AppController
     {
         [HttpPost(Routes.v1.Menu.Crear)]

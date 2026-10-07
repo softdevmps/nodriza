@@ -211,7 +211,8 @@ async function load() {
   systems.value = systemsRes.status === 'fulfilled' ? (systemsRes.value?.data || []) : []
   users.value = usersRes.status === 'fulfilled' ? (usersRes.value?.data || []) : []
 
-  if (results.some(r => r.status === 'rejected')) {
+  // 403 = el usuario no es admin y no puede ver ese dato: no es un error
+  if (results.some(r => r.status === 'rejected' && r.reason?.response?.status !== 403)) {
     error.value = 'No se pudieron cargar algunos datos.'
   }
 

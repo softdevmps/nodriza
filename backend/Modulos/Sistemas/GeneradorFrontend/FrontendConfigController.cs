@@ -1,3 +1,4 @@
+using Backend.Comun.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Comun;
@@ -16,6 +17,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return Ok(config);
         }
 
+        [Authorize(Policy = Politicas.Admin)]
         [HttpPut(Routes.v1.Frontend.GuardarConfig)]
         public IActionResult Guardar(int systemId, [FromBody] FrontendConfigRequest request)
         {

@@ -10,7 +10,7 @@ using Backend.Comun.Seguridad;
 namespace Backend.Modulos.DevTools
 {
     [ApiController]
-    [Authorize]
+    [Authorize(Policy = Politicas.Admin)]
     public class DevToolsController : AppController
     {
         private readonly IHostApplicationLifetime _lifetime;
@@ -26,21 +26,6 @@ namespace Backend.Modulos.DevTools
         public IActionResult Restart()
         {
             if (!_env.IsDevelopment())
-                return Forbid();
-
-            var usuario = UsuarioToken();
-            if (usuario.UsuarioId == 0)
-                return Unauthorized();
-
-            using var context = new SystemBaseContext();
-            var isAdmin = context.Usuarios
-                .Include(u => u.Rol)
-                .Any(u =>
-                    u.Id == usuario.UsuarioId &&
-                    (u.Username.ToLower() == "admin" || (u.Rol != null && u.Rol.Nombre.ToLower() == "admin"))
-                );
-
-            if (!isAdmin)
                 return Forbid();
 
             _ = Task.Run(() => _lifetime.StopApplication());
