@@ -106,6 +106,17 @@ namespace Backend.Modulos.Sistemas
             }
 
             var carpetaArchivada = ArchivarCarpetaSistema(sistema.Slug);
+
+            // Sin sistema no hay credenciales: se borran su login y usuarios SQL (los datos quedan archivados).
+            try
+            {
+                using var context = new SystemBaseContext();
+                CredencialesSistema.Eliminar(context, sistema.Slug);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudieron borrar las credenciales SQL del sistema {Slug}", sistema.Slug);
+            }
             return Ok(new { schemaArchivado = result.SchemaArchivado, carpetaArchivada });
         }
 
@@ -246,14 +257,33 @@ namespace Backend.Modulos.Sistemas
                 return BadRequest(new { message = "No se detectaron sentencias SQL ejecutables." });
 
             using var context = new SystemBaseContext();
+
+            // El script NO corre como la cuenta de la fábrica: corre como un usuario de base sin login
+            // que solo tiene permisos en sys_<slug>. Aunque se evada el filtro (p. ej. con SQL dinámico),
+            // la base le niega todo lo que esté fuera del schema del sistema.
+            CredencialesSistema.AsegurarUsuarioConsola(context, sistema.Slug);
+
             using var trx = context.Database.BeginTransaction();
+            byte[]? cookie = null;
             try
             {
+                cookie = (byte[])EjecutarAdHoc(context,
+                    $"DECLARE @c VARBINARY(8000); EXECUTE AS USER = N'{CredencialesSistema.NombreUsuarioConsola(sistema.Slug)}' WITH COOKIE INTO @c; SELECT @c;")!;
+
                 var executed = 0;
-                foreach (var batch in batches)
+                try
                 {
-                    context.Database.ExecuteSqlRaw(batch);
-                    executed++;
+                    foreach (var batch in batches)
+                    {
+                        context.Database.ExecuteSqlRaw(batch);
+                        executed++;
+                    }
+                }
+                finally
+                {
+                    // Volver a la cuenta de la fábrica (solo con la cookie: el script no puede hacer REVERT).
+                    RevertirContexto(context, cookie);
+                    cookie = null;
                 }
 
                 MetadataSyncResult? metadata = null;
@@ -277,8 +307,37 @@ namespace Backend.Modulos.Sistemas
             }
             catch (Exception ex)
             {
+                if (cookie != null)
+                    RevertirContexto(context, cookie);
                 trx.Rollback();
+                // Es el script del propio admin (consola DEV): el error de SQL le sirve para corregirlo.
                 return BadRequest(new { message = $"Error ejecutando SQL: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// EXECUTE AS ... WITH COOKIE y REVERT solo se permiten en un lote ad hoc (sin sp_executesql),
+        /// así que van sin parámetros. Los valores interpolados son seguros: un nombre derivado del slug
+        /// validado ([a-z0-9_]) y la cookie en hexadecimal.
+        /// </summary>
+        private static object? EjecutarAdHoc(SystemBaseContext context, string sql)
+        {
+            var conn = context.Database.GetDbConnection();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+            cmd.Transaction = context.Database.CurrentTransaction?.GetDbTransaction();
+            return cmd.ExecuteScalar();
+        }
+
+        private static void RevertirContexto(SystemBaseContext context, byte[] cookie)
+        {
+            try
+            {
+                EjecutarAdHoc(context, $"REVERT WITH COOKIE = 0x{Convert.ToHexString(cookie)};");
+            }
+            catch
+            {
+                // Si la conexión quedó inutilizable, el pool la resetea (sp_reset_connection) al devolverla.
             }
         }
 
@@ -671,7 +730,7 @@ namespace Backend.Modulos.Sistemas
             if (!script.Contains(expectedSchema, StringComparison.OrdinalIgnoreCase))
                 return (false, $"El script debe usar el schema del sistema: {expectedSchema}.");
 
-            var forbiddenPattern = @"\b(use|backup|restore|shutdown|reconfigure|sp_configure|xp_cmdshell|exec\s+xp_|create\s+database|drop\s+database|alter\s+database|create\s+login|drop\s+login|alter\s+login)\b";
+            var forbiddenPattern = @"\b(use|backup|restore|shutdown|reconfigure|sp_configure|xp_cmdshell|exec\s+xp_|create\s+database|drop\s+database|alter\s+database|create\s+login|drop\s+login|alter\s+login|revert|setuser|execute\s+as|exec\s+as)\b";
             if (Regex.IsMatch(script, forbiddenPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
                 return (false, "El script contiene sentencias no permitidas para esta consola.");
 

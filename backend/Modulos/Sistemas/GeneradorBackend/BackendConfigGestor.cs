@@ -255,18 +255,6 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             defaults.Persistence = string.IsNullOrWhiteSpace(data.Persistence) ? defaults.Persistence : data.Persistence!;
             defaults.DefaultPageSize = data.DefaultPageSize ?? defaults.DefaultPageSize;
             defaults.MaxPageSize = data.MaxPageSize ?? defaults.MaxPageSize;
-            defaults.AudioStorageProvider = string.IsNullOrWhiteSpace(data.AudioStorageProvider) ? defaults.AudioStorageProvider : data.AudioStorageProvider!;
-            defaults.AudioTranscodeEnabled = data.AudioTranscodeEnabled ?? defaults.AudioTranscodeEnabled;
-            defaults.AudioTranscodeFormat = string.IsNullOrWhiteSpace(data.AudioTranscodeFormat)
-                ? defaults.AudioTranscodeFormat
-                : data.AudioTranscodeFormat!;
-            defaults.AudioTranscodeBitrate = string.IsNullOrWhiteSpace(data.AudioTranscodeBitrate)
-                ? defaults.AudioTranscodeBitrate
-                : data.AudioTranscodeBitrate!;
-            defaults.AudioTranscodeDeleteOriginal = data.AudioTranscodeDeleteOriginal ?? defaults.AudioTranscodeDeleteOriginal;
-            defaults.AudioRetentionSoftDays = data.AudioRetentionSoftDays ?? defaults.AudioRetentionSoftDays;
-            defaults.AudioRetentionPurgeDays = data.AudioRetentionPurgeDays ?? defaults.AudioRetentionPurgeDays;
-            defaults.AudioRetentionRunMinutes = data.AudioRetentionRunMinutes ?? defaults.AudioRetentionRunMinutes;
             return defaults;
         }
 
@@ -279,15 +267,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
                 SchemaPrefix = config.SchemaPrefix,
                 Persistence = config.Persistence,
                 DefaultPageSize = config.DefaultPageSize,
-                MaxPageSize = config.MaxPageSize,
-                AudioStorageProvider = config.AudioStorageProvider,
-                AudioTranscodeEnabled = config.AudioTranscodeEnabled,
-                AudioTranscodeFormat = config.AudioTranscodeFormat,
-                AudioTranscodeBitrate = config.AudioTranscodeBitrate,
-                AudioTranscodeDeleteOriginal = config.AudioTranscodeDeleteOriginal,
-                AudioRetentionSoftDays = config.AudioRetentionSoftDays,
-                AudioRetentionPurgeDays = config.AudioRetentionPurgeDays,
-                AudioRetentionRunMinutes = config.AudioRetentionRunMinutes
+                MaxPageSize = config.MaxPageSize
             };
         }
 
@@ -397,14 +377,6 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             public string? Persistence { get; set; }
             public int? DefaultPageSize { get; set; }
             public int? MaxPageSize { get; set; }
-            public string? AudioStorageProvider { get; set; }
-            public bool? AudioTranscodeEnabled { get; set; }
-            public string? AudioTranscodeFormat { get; set; }
-            public string? AudioTranscodeBitrate { get; set; }
-            public bool? AudioTranscodeDeleteOriginal { get; set; }
-            public int? AudioRetentionSoftDays { get; set; }
-            public int? AudioRetentionPurgeDays { get; set; }
-            public int? AudioRetentionRunMinutes { get; set; }
         }
 
         private class BackendEntityConfigData

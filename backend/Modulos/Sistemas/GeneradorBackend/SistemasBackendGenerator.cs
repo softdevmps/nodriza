@@ -109,24 +109,28 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
                 };
             }
 
+            // El .env del sistema (credenciales propias y configuración del equipo) nunca se pisa:
+            // ni al negarse a regenerar ni al regenerar con overwrite.
+            string? envExistente = null;
             if (Directory.Exists(outputRoot))
             {
                 if (!overwrite)
                 {
-                    TryUpdateEnvFiles(outputRoot, systemConfig);
                     return new BackendGenerateResult
                     {
                         Ok = false,
-                        Message = $"La carpeta ya existe: {outputRoot}. Se actualizo .env con los JWT/DB actuales. Usa overwrite=true para reemplazar."
+                        Message = $"La carpeta ya existe: {outputRoot}. No se modificó nada. Usa overwrite=true para reemplazar el código (el .env se conserva)."
                     };
                 }
 
+                var envPath = Path.Combine(outputRoot, ".env");
+                if (File.Exists(envPath))
+                    envExistente = File.ReadAllText(envPath);
                 Directory.Delete(outputRoot, true);
             }
 
             Directory.CreateDirectory(outputRoot);
-
-            TryUpdateEnvFiles(outputRoot, systemConfig);
+            PrepararEnv(context, outputRoot, slug, envExistente);
 
             var controllersDir = Path.Combine(outputRoot, "Controllers");
             var modelsDir = Path.Combine(outputRoot, "Models");
@@ -262,112 +266,88 @@ DB_USER=USUARIO_DE_BASE_DE_DATOS
 DB_PASSWORD=CONTRASEÑA_DE_BASE_DE_DATOS
 DB_TRUST_CERT=True
 
-JWT_SECRET=CLAVE_SUPER_SECRETA
-JWT_ISSUER=systembase
-JWT_AUDIENCE=systembase
+# Secreto propio de este sistema: 32+ caracteres aleatorios (el backend no arranca sin él)
+JWT_SECRET=
+JWT_ISSUER=mi-sistema-backend
+JWT_AUDIENCE=mi-sistema-clientes
 JWT_EXPIRE_MINUTES=120
 
-## Audio pipeline (local)
-AUDIO_STORAGE_PROVIDER=local
-AUDIO_STORAGE_ROOT=storage/audio
-AUDIO_ALLOWED_EXT=mp3,wav,m4a,ogg,opus,webm,aac
-AUDIO_MAX_MB=50
+# Orígenes permitidos por CORS, separados por coma (vacío = solo localhost)
+CORS_ORIGINS=
 
-## Transcoding (ffmpeg)
-AUDIO_TRANSCODE_ENABLED=false
-AUDIO_TRANSCODE_FORMAT=opus
-AUDIO_TRANSCODE_BITRATE=32k
-AUDIO_TRANSCODE_DELETE_ORIGINAL=true
-FFMPEG_PATH=ffmpeg
-
-## Retention policies
-AUDIO_RETENTION_SOFT_DAYS=0
-AUDIO_RETENTION_PURGE_DAYS=0
-AUDIO_RETENTION_RUN_MINUTES=60
+# Registro público de usuarios (true/false)
+REGISTRO_PUBLICO=false
 ";
         }
 
-        private static string BuildEnvFile(BackendSystemConfig systemConfig)
+        private static string BuildEnvFile(string slug, string dbUser, string dbPassword, string jwtSecret)
         {
             string Get(string key, string fallback) =>
                 string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key))
                     ? fallback
                     : Environment.GetEnvironmentVariable(key)!;
 
-            var dbServer = Get("DB_SERVER", "localhost,1433");
-            var dbName = Get("DB_NAME", "systemBase");
-            var dbUser = Get("DB_USER", "sa");
-            var dbPassword = Get("DB_PASSWORD", "Password123!");
-            var dbTrust = Get("DB_TRUST_CERT", "True");
-
-            var jwtSecret = Get("JWT_SECRET", "secret");
-            var jwtIssuer = Get("JWT_ISSUER", "systembase");
-            var jwtAudience = Get("JWT_AUDIENCE", "systembase");
-            var jwtExpire = Get("JWT_EXPIRE_MINUTES", "120");
-
-            var audioProvider = string.IsNullOrWhiteSpace(systemConfig.AudioStorageProvider)
-                ? "local"
-                : systemConfig.AudioStorageProvider;
-            var audioStorageRoot = Get("AUDIO_STORAGE_ROOT", "storage/audio");
-            var audioAllowedExt = Get("AUDIO_ALLOWED_EXT", "mp3,wav,m4a,ogg,opus,webm,aac");
-            var audioMaxMb = Get("AUDIO_MAX_MB", "50");
-
-            var transcodeEnabled = systemConfig.AudioTranscodeEnabled ? "true" : "false";
-            var transcodeFormat = string.IsNullOrWhiteSpace(systemConfig.AudioTranscodeFormat)
-                ? "opus"
-                : systemConfig.AudioTranscodeFormat;
-            var transcodeBitrate = string.IsNullOrWhiteSpace(systemConfig.AudioTranscodeBitrate)
-                ? "32k"
-                : systemConfig.AudioTranscodeBitrate;
-            var transcodeDeleteOriginal = systemConfig.AudioTranscodeDeleteOriginal ? "true" : "false";
-            var ffmpegPath = Get("FFMPEG_PATH", "ffmpeg");
-
-            var retentionSoftDays = systemConfig.AudioRetentionSoftDays.ToString();
-            var retentionPurgeDays = systemConfig.AudioRetentionPurgeDays.ToString();
-            var retentionRunMinutes = systemConfig.AudioRetentionRunMinutes.ToString();
-
-            return $@"DB_SERVER={dbServer}
-DB_NAME={dbName}
+            return $@"DB_SERVER={Get("DB_SERVER", "localhost,1433")}
+DB_NAME={Get("DB_NAME", "systemBase")}
 DB_USER={dbUser}
 DB_PASSWORD={dbPassword}
-DB_TRUST_CERT={dbTrust}
+DB_TRUST_CERT={Get("DB_TRUST_CERT", "True")}
 
 JWT_SECRET={jwtSecret}
-JWT_ISSUER={jwtIssuer}
-JWT_AUDIENCE={jwtAudience}
-JWT_EXPIRE_MINUTES={jwtExpire}
+JWT_ISSUER={slug}-backend
+JWT_AUDIENCE={slug}-clientes
+JWT_EXPIRE_MINUTES={Get("JWT_EXPIRE_MINUTES", "120")}
 
-## Audio pipeline (local)
-AUDIO_STORAGE_PROVIDER={audioProvider}
-AUDIO_STORAGE_ROOT={audioStorageRoot}
-AUDIO_ALLOWED_EXT={audioAllowedExt}
-AUDIO_MAX_MB={audioMaxMb}
-
-## Transcoding (ffmpeg)
-AUDIO_TRANSCODE_ENABLED={transcodeEnabled}
-AUDIO_TRANSCODE_FORMAT={transcodeFormat}
-AUDIO_TRANSCODE_BITRATE={transcodeBitrate}
-AUDIO_TRANSCODE_DELETE_ORIGINAL={transcodeDeleteOriginal}
-FFMPEG_PATH={ffmpegPath}
-
-## Retention policies
-AUDIO_RETENTION_SOFT_DAYS={retentionSoftDays}
-AUDIO_RETENTION_PURGE_DAYS={retentionPurgeDays}
-AUDIO_RETENTION_RUN_MINUTES={retentionRunMinutes}
+CORS_ORIGINS=
+REGISTRO_PUBLICO=false
 ";
         }
 
-        private static void TryUpdateEnvFiles(string outputRoot, BackendSystemConfig systemConfig)
+        /// <summary>
+        /// Deja el .env del sistema listo y la cuenta SQL del sistema creada con permisos mínimos.
+        /// - Si había un .env (regenerar con overwrite) se conserva tal cual y se re-aseguran los permisos SQL.
+        /// - Si no había, se crea con credenciales SQL y secreto JWT propios (nunca los de la fábrica).
+        /// </summary>
+        private static void PrepararEnv(SystemBaseContext context, string outputRoot, string slug, string? envExistente)
         {
-            try
+            var envPath = Path.Combine(outputRoot, ".env");
+            File.WriteAllText(Path.Combine(outputRoot, ".env.example"), BuildEnvExample(), new UTF8Encoding(false));
+            File.WriteAllText(Path.Combine(outputRoot, ".gitignore"), BuildGitignore(), new UTF8Encoding(false));
+
+            if (envExistente != null)
             {
-                File.WriteAllText(Path.Combine(outputRoot, ".env"), BuildEnvFile(systemConfig), new UTF8Encoding(false));
-                File.WriteAllText(Path.Combine(outputRoot, ".env.example"), BuildEnvExample(), new UTF8Encoding(false));
+                File.WriteAllText(envPath, envExistente, new UTF8Encoding(false));
+                var valores = envExistente.Split('\n')
+                    .Select(l => l.Trim())
+                    .Where(l => l.Contains('=') && !l.StartsWith('#'))
+                    .Select(l => l.Split('=', 2))
+                    .ToDictionary(kv => kv[0].Trim(), kv => kv[1].Trim(), StringComparer.OrdinalIgnoreCase);
+                if (valores.TryGetValue("DB_USER", out var usuario) && usuario == CredencialesSistema.NombreLogin(slug) &&
+                    valores.TryGetValue("DB_PASSWORD", out var pass) && !string.IsNullOrEmpty(pass))
+                {
+                    CredencialesSistema.AsegurarLogin(context, slug, pass);
+                }
+                return;
             }
-            catch
-            {
-                // no-op
-            }
+
+            var password = CredencialesSistema.GenerarPassword();
+            CredencialesSistema.AsegurarLogin(context, slug, password);
+            File.WriteAllText(envPath, BuildEnvFile(slug, CredencialesSistema.NombreLogin(slug), password, CredencialesSistema.GenerarSecretoJwt()), new UTF8Encoding(false));
+        }
+
+        private static string BuildGitignore()
+        {
+            return @"# Credenciales: nunca al repositorio
+.env
+.env.*
+!.env.example
+
+bin/
+obj/
+.vs/
+*.user
+.restart
+";
         }
 
         private static string BuildProgram()
@@ -394,10 +374,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(""AllowFrontend"", policy =>
     {
+        // CORS_ORIGINS (separados por coma) o, si está vacío, solo orígenes localhost.
+        var origenes = AppConfig.CORS_ORIGINS;
         policy
+            .SetIsOriginAllowed(origin =>
+                origenes.Length > 0
+                    ? origenes.Contains(origin, StringComparer.OrdinalIgnoreCase)
+                    : Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback)
             .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowAnyOrigin();
+            .AllowAnyMethod();
     });
 });
 
@@ -417,6 +402,27 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(AppConfig.JWT_SECRET)
             )
+        };
+
+        // Un usuario desactivado pierde el acceso aunque su token no haya vencido.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                if (!int.TryParse(context.Principal?.FindFirst(""usuarioId"")?.Value, out var usuarioId))
+                {
+                    context.Fail(""Token sin usuario."");
+                    return Task.CompletedTask;
+                }
+
+                using var conn = Backend.Data.Db.Open();
+                using var cmd = new Microsoft.Data.SqlClient.SqlCommand(
+                    ""SELECT TOP 1 Id FROM dbo.Usuarios WHERE Id = @id AND Activo = 1"", conn);
+                cmd.Parameters.AddWithValue(""@id"", usuarioId);
+                if (cmd.ExecuteScalar() == null)
+                    context.Fail(""Usuario inactivo."");
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -678,13 +684,30 @@ namespace Backend.Data
         public static string DB_USER => Environment.GetEnvironmentVariable(""DB_USER"") ?? """";
         public static string DB_PASSWORD => Environment.GetEnvironmentVariable(""DB_PASSWORD"") ?? """";
 
-        public static string JWT_SECRET => Environment.GetEnvironmentVariable(""JWT_SECRET"") ?? ""secret"";
+        // Sin valor por defecto: sin un secreto propio y largo el backend no arranca.
+        public static string JWT_SECRET
+        {
+            get
+            {
+                var secreto = Environment.GetEnvironmentVariable(""JWT_SECRET"");
+                if (string.IsNullOrWhiteSpace(secreto) || System.Text.Encoding.UTF8.GetByteCount(secreto) < 32)
+                    throw new InvalidOperationException(""Falta JWT_SECRET en el .env (mínimo 32 caracteres)."");
+                return secreto;
+            }
+        }
         public static string JWT_ISSUER => Environment.GetEnvironmentVariable(""JWT_ISSUER"") ?? ""systembase"";
         public static string JWT_AUDIENCE => Environment.GetEnvironmentVariable(""JWT_AUDIENCE"") ?? ""systembase"";
         public static int JWT_EXPIRE_MINUTES =>
             int.TryParse(Environment.GetEnvironmentVariable(""JWT_EXPIRE_MINUTES""), out var minutes)
                 ? minutes
                 : 120;
+
+        public static bool REGISTRO_PUBLICO =>
+            bool.TryParse(Environment.GetEnvironmentVariable(""REGISTRO_PUBLICO""), out var habilitado) && habilitado;
+
+        public static string[] CORS_ORIGINS =>
+            (Environment.GetEnvironmentVariable(""CORS_ORIGINS"") ?? """")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 }
 ";
@@ -780,7 +803,7 @@ namespace Backend.Negocio.Gestores
         {
             using var conn = Db.Open();
 
-            const string sqlExiste = @""SELECT COUNT(1)
+            const string sqlExiste = @""SELECT TOP 1 Id
                                        FROM dbo.Usuarios
                                        WHERE Username = @u OR Email = @e"";
 
@@ -788,7 +811,7 @@ namespace Backend.Negocio.Gestores
             cmdExiste.Parameters.AddWithValue(""@u"", model.Username);
             cmdExiste.Parameters.AddWithValue(""@e"", model.Email);
 
-            var existe = Convert.ToInt32(cmdExiste.ExecuteScalar()) > 0;
+            var existe = cmdExiste.ExecuteScalar() != null;
             if (existe)
                 return false;
 
@@ -853,7 +876,7 @@ namespace Backend.Models.Auth
         [Required, EmailAddress]
         public string Email { get; set; } = string.Empty;
 
-        [Required]
+        [Required, MinLength(8), RegularExpression(@""^(?=.*\p{L})(?=.*\d).+$"", ErrorMessage = ""La contraseña debe tener al menos 8 caracteres, con letras y números."")]
         public string Password { get; set; } = string.Empty;
 
         [Required]
@@ -909,6 +932,7 @@ namespace Backend.Controllers
         {
             return @"using Backend.Models.Auth;
 using Backend.Negocio.Gestores;
+using Backend.Utils;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Backend.Controllers
@@ -919,6 +943,9 @@ namespace Backend.Controllers
         [HttpPost(Routes.v1.Auth.Registrar)]
         public IActionResult Registrar([FromBody] RegistrarRequest model)
         {
+            if (!AppConfig.REGISTRO_PUBLICO)
+                return StatusCode(403, ""El registro público está deshabilitado."");
+
             if (!ModelState.IsValid)
                 return BadRequest(""Datos inválidos"");
 

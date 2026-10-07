@@ -962,116 +962,6 @@
           </v-col>
         </v-row>
 
-        <v-row class="mt-4">
-          <v-col cols="12">
-            <v-card elevation="2" class="card">
-              <v-card-title class="d-flex align-center justify-space-between">
-                <div class="d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-microphone-outline</v-icon>
-                  <span class="text-h6 font-weight-medium">Audio y pipeline</span>
-                </div>
-              </v-card-title>
-
-              <v-divider />
-
-              <v-card-text>
-                <v-alert type="info" variant="tonal" class="mb-4">
-                  Configura transcodificacion, retencion y storage para el procesamiento de audios.
-                </v-alert>
-                <v-row>
-                  <v-col cols="12" md="4">
-                    <v-select
-                      v-model="backendSystemConfig.audioStorageProvider"
-                      :items="backendAudioProviderOptions"
-                      label="Storage provider"
-                      item-title="title"
-                      item-value="value"
-                      hint="Local o S3/MinIO (adapter)"
-                      persistent-hint
-                      density="compact"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-switch
-                      v-model="backendSystemConfig.audioTranscodeEnabled"
-                      color="green"
-                      :base-color="'grey'"
-                      inset
-                      label="Transcodificacion"
-                      hint="Convierte a formato liviano (ej: opus)"
-                      persistent-hint
-                      density="compact"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-select
-                      v-model="backendSystemConfig.audioTranscodeFormat"
-                      :items="backendAudioFormatOptions"
-                      label="Formato"
-                      hint="Formato objetivo"
-                      persistent-hint
-                      density="compact"
-                      :disabled="!backendSystemConfig.audioTranscodeEnabled"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-text-field
-                      v-model="backendSystemConfig.audioTranscodeBitrate"
-                      label="Bitrate"
-                      hint="Ej: 32k"
-                      persistent-hint
-                      density="compact"
-                      :disabled="!backendSystemConfig.audioTranscodeEnabled"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-switch
-                      v-model="backendSystemConfig.audioTranscodeDeleteOriginal"
-                      color="green"
-                      :base-color="'grey'"
-                      inset
-                      label="Borrar original"
-                      hint="Elimina el archivo original luego de transcodificar"
-                      persistent-hint
-                      density="compact"
-                      :disabled="!backendSystemConfig.audioTranscodeEnabled"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-text-field
-                      v-model.number="backendSystemConfig.audioRetentionSoftDays"
-                      label="Retencion soft (dias)"
-                      type="number"
-                      hint="Marca como borrado logico"
-                      persistent-hint
-                      density="compact"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-text-field
-                      v-model.number="backendSystemConfig.audioRetentionPurgeDays"
-                      label="Retencion purge (dias)"
-                      type="number"
-                      hint="Borra archivo y registro"
-                      persistent-hint
-                      density="compact"
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-text-field
-                      v-model.number="backendSystemConfig.audioRetentionRunMinutes"
-                      label="Frecuencia limpieza (min)"
-                      type="number"
-                      hint="Cada cuanto corre el worker de limpieza"
-                      persistent-hint
-                      density="compact"
-                    />
-                  </v-col>
-                </v-row>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
 
         <v-row class="mt-4">
           <v-col cols="12">
@@ -2134,15 +2024,7 @@ const backendSystemConfig = ref({
   schemaPrefix: 'sys',
   persistence: 'sql',
   defaultPageSize: 50,
-  maxPageSize: 200,
-  audioStorageProvider: 'local',
-  audioTranscodeEnabled: false,
-  audioTranscodeFormat: 'opus',
-  audioTranscodeBitrate: '32k',
-  audioTranscodeDeleteOriginal: true,
-  audioRetentionSoftDays: 0,
-  audioRetentionPurgeDays: 0,
-  audioRetentionRunMinutes: 60
+  maxPageSize: 200
 })
 const backendEntities = ref([])
 const tab = ref(localStorage.getItem('systemEditorTab') || 'datos')
@@ -2297,19 +2179,7 @@ const backendSystemAuthOptions = [
 ]
 
 const backendPersistenceOptions = [
-  'sql',
-  'efcore'
-]
-
-const backendAudioProviderOptions = [
-  { title: 'Local', value: 'local' }
-]
-
-const backendAudioFormatOptions = [
-  'opus',
-  'mp3',
-  'aac',
-  'wav'
+  'sql'
 ]
 
 const backendRequiredOptions = [
@@ -3320,14 +3190,6 @@ function frontendEntityLabel(entity) {
 
 function ensureBackendSystemConfig(systemConfig) {
   if (!systemConfig) return
-  if (!systemConfig.audioStorageProvider) systemConfig.audioStorageProvider = 'local'
-  if (systemConfig.audioTranscodeEnabled === undefined) systemConfig.audioTranscodeEnabled = false
-  if (!systemConfig.audioTranscodeFormat) systemConfig.audioTranscodeFormat = 'opus'
-  if (!systemConfig.audioTranscodeBitrate) systemConfig.audioTranscodeBitrate = '32k'
-  if (systemConfig.audioTranscodeDeleteOriginal === undefined) systemConfig.audioTranscodeDeleteOriginal = true
-  if (systemConfig.audioRetentionSoftDays === undefined || systemConfig.audioRetentionSoftDays === null) systemConfig.audioRetentionSoftDays = 0
-  if (systemConfig.audioRetentionPurgeDays === undefined || systemConfig.audioRetentionPurgeDays === null) systemConfig.audioRetentionPurgeDays = 0
-  if (systemConfig.audioRetentionRunMinutes === undefined || systemConfig.audioRetentionRunMinutes === null) systemConfig.audioRetentionRunMinutes = 60
 }
 
 function ensureFrontendSystemConfig(systemConfig) {
