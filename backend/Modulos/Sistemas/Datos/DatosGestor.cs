@@ -1,3 +1,4 @@
+using Backend.Comun;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
@@ -339,7 +340,7 @@ namespace Backend.Modulos.Sistemas.Datos
             if (system == null)
                 return (false, "Sistema no encontrado.", "", null!, new List<Fields>(), null);
 
-            var schemaName = ToSafeSchemaName(system.Slug);
+            var schemaName = NombresSql.EsquemaDeSistema(system.Slug);
             if (schemaName == null)
                 return (false, "Slug invalido.", "", null!, new List<Fields>(), null);
 
@@ -350,7 +351,7 @@ namespace Backend.Modulos.Sistemas.Datos
             if (entity == null)
                 return (false, "Entidad no encontrada.", "", null!, new List<Fields>(), null);
 
-            if (ToSafeSqlName(entity.TableName) == null)
+            if (NombresSql.Normalizar(entity.TableName) == null)
                 return (false, "TableName invalido.", "", null!, new List<Fields>(), null);
 
             var fields = entity.Fields
@@ -364,7 +365,7 @@ namespace Backend.Modulos.Sistemas.Datos
 
             foreach (var field in fields)
             {
-                if (ToSafeSqlName(field.ColumnName) == null)
+                if (NombresSql.Normalizar(field.ColumnName) == null)
                     return (false, $"ColumnName invalido: {field.ColumnName}", "", null!, new List<Fields>(), null);
             }
 
@@ -559,7 +560,7 @@ namespace Backend.Modulos.Sistemas.Datos
                 if (!entityMap.TryGetValue(relation.SourceEntityId, out var sourceTable))
                     continue;
 
-                if (ToSafeSqlName(sourceTable) == null || ToSafeSqlName(fk) == null)
+                if (NombresSql.Normalizar(sourceTable) == null || NombresSql.Normalizar(fk) == null)
                     continue;
 
                 var sql = $"SELECT TOP 1 1 FROM [{schemaName}].[{sourceTable}] WHERE [{fk}] = @p0";
@@ -584,38 +585,5 @@ namespace Backend.Modulos.Sistemas.Datos
             return param;
         }
 
-        private static string? ToSafeSchemaName(string slug)
-        {
-            return ToSafeSqlName($"sys_{slug}");
-        }
-
-        private static string? ToSafeSqlName(string? input)
-        {
-            if (string.IsNullOrWhiteSpace(input))
-                return null;
-
-            var trimmed = input.Trim();
-            var sb = new StringBuilder();
-
-            foreach (var ch in trimmed)
-            {
-                if (char.IsLetterOrDigit(ch) || ch == '_')
-                {
-                    sb.Append(ch);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            if (sb.Length == 0)
-                return null;
-
-            if (char.IsDigit(sb[0]))
-                return null;
-
-            return sb.ToString();
-        }
     }
 }

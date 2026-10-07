@@ -94,7 +94,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             var schema = string.IsNullOrWhiteSpace(schemaPrefix)
                 ? slug
                 : $"{schemaPrefix}_{slug}";
-            var projectName = $"{ToPascalCase(slug)}.Backend";
+            var projectName = $"{Texto.ToPascalCase(slug)}.Backend";
 
             // Todo lo que se escribe dentro del código generado tiene que ser un identificador
             // o una ruta segura: un nombre con comillas inyectaría código C# que después corre
@@ -185,7 +185,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             foreach (var entity in entitiesToGenerate)
             {
                 var relationChecks = BuildRelationsForEntity(entity, relations, system.Entities);
-                var safeName = ToPascalCase(entity.Name);
+                var safeName = Texto.ToPascalCase(entity.Name);
                 var entityFolder = Path.Combine(modelsDir, safeName);
                 Directory.CreateDirectory(entityFolder);
 
@@ -562,10 +562,10 @@ app.Run();
 
             foreach (var entity in entities.OrderBy(e => e.SortOrder).ThenBy(e => e.Id))
             {
-                var name = ToPascalCase(entity.Name);
+                var name = Texto.ToPascalCase(entity.Name);
                 var route = configByEntityId.TryGetValue(entity.Id, out var cfg) && !string.IsNullOrWhiteSpace(cfg.Route)
                     ? cfg.Route
-                    : ToKebab(entity.Name);
+                    : Texto.ToKebab(entity.Name);
 
                 sb.AppendLine($"            public static class {name}");
                 sb.AppendLine("            {");
@@ -983,7 +983,7 @@ namespace Backend.Controllers
 
             foreach (var field in fields)
             {
-                var propertyName = ToPascalCase(field.ColumnName);
+                var propertyName = Texto.ToPascalCase(field.ColumnName);
                 var type = MapToCSharpType(field);
                 var nullable = IsNullable(field) ? "?" : "";
                 var typeDecl = type == "string"
@@ -1008,7 +1008,7 @@ namespace Backend.Controllers
 
             foreach (var field in fields)
             {
-                var propertyName = ToPascalCase(field.Field.ColumnName);
+                var propertyName = Texto.ToPascalCase(field.Field.ColumnName);
                 var type = MapToCSharpType(field.Field);
                 var nullable = IsNullable(field.Field) ? "?" : "";
                 var typeDecl = type == "string"
@@ -1033,7 +1033,7 @@ namespace Backend.Controllers
 
             foreach (var field in fields)
             {
-                var propertyName = ToPascalCase(field.Field.ColumnName);
+                var propertyName = Texto.ToPascalCase(field.Field.ColumnName);
                 var type = MapToCSharpType(field.Field);
                 var nullable = IsNullable(field.Field) ? "?" : "";
                 var typeDecl = type == "string"
@@ -1063,7 +1063,7 @@ namespace Backend.Controllers
 
             foreach (var field in fields)
             {
-                var propertyName = ToPascalCase(field.Field.ColumnName);
+                var propertyName = Texto.ToPascalCase(field.Field.ColumnName);
                 var type = MapToCSharpType(field.Field);
                 var nullable = IsNullable(field.Field) ? "?" : "";
                 var typeDecl = type == "string"
@@ -1085,7 +1085,7 @@ namespace Backend.Controllers
 
         private static string BuildEntityGestor(string schema, Entities entity, List<FieldConfig> fieldConfigs, BackendEntityConfig config, BackendSystemConfig systemConfig, List<RelationCheck> relationChecks)
         {
-            var entityName = ToPascalCase(entity.Name);
+            var entityName = Texto.ToPascalCase(entity.Name);
             var tableName = entity.TableName;
 
             var pk = fieldConfigs.FirstOrDefault(f => f.Field.IsPrimaryKey) ?? fieldConfigs.First();
@@ -1126,7 +1126,7 @@ namespace Backend.Controllers
             var mapLines = new StringBuilder();
             foreach (var field in selectFields)
             {
-                var prop = ToPascalCase(field.Field.ColumnName);
+                var prop = Texto.ToPascalCase(field.Field.ColumnName);
                 var cast = MapToCSharpType(field.Field);
                 if (cast == "string")
                 {
@@ -1145,14 +1145,14 @@ namespace Backend.Controllers
             var addInsertParams = new StringBuilder();
             foreach (var field in insertFields)
             {
-                var prop = ToPascalCase(field.Field.ColumnName);
+                var prop = Texto.ToPascalCase(field.Field.ColumnName);
                 addInsertParams.AppendLine(BuildParameterLine(field, prop, useDefault: true));
             }
 
             var addUpdateParams = new StringBuilder();
             foreach (var field in updateFields)
             {
-                var prop = ToPascalCase(field.Field.ColumnName);
+                var prop = Texto.ToPascalCase(field.Field.ColumnName);
                 addUpdateParams.AppendLine(BuildParameterLine(field, prop, useDefault: false));
             }
 
@@ -1225,7 +1225,7 @@ namespace Backend.Controllers
                 relationByColumn[rel.ForeignKeyColumn] = rel;
             foreach (var field in insertFields)
             {
-                var prop = ToPascalCase(field.Field.ColumnName);
+                var prop = Texto.ToPascalCase(field.Field.ColumnName);
                 var type = MapToCSharpType(field.Field);
                 if (relationByColumn.TryGetValue(field.Field.ColumnName, out var relation))
                 {
@@ -1275,7 +1275,7 @@ namespace Backend.Controllers
             var updateValidation = new StringBuilder();
             foreach (var field in updateFields)
             {
-                var prop = ToPascalCase(field.Field.ColumnName);
+                var prop = Texto.ToPascalCase(field.Field.ColumnName);
                 var type = MapToCSharpType(field.Field);
                 if (relationByColumn.TryGetValue(field.Field.ColumnName, out var relation))
                 {
@@ -1411,7 +1411,7 @@ namespace Backend.Negocio.Gestores
 
         private static string BuildEntityController(Entities entity, BackendEntityConfig config, BackendSystemConfig systemConfig)
         {
-            var entityName = ToPascalCase(entity.Name);
+            var entityName = Texto.ToPascalCase(entity.Name);
             var pkField = entity.Fields.FirstOrDefault(f => f.IsPrimaryKey) ?? entity.Fields.First();
             var pkType = MapToCSharpType(pkField);
 
@@ -1738,7 +1738,7 @@ namespace Backend.Controllers
                 Name = entity.Name,
                 DisplayName = entity.DisplayName,
                 IsEnabled = true,
-                Route = ToKebab(entity.Name),
+                Route = Texto.ToKebab(entity.Name),
                 RequireAuth = null,
                 SoftDelete = false,
                 Pagination = false,
@@ -1777,72 +1777,5 @@ namespace Backend.Controllers
             return string.IsNullOrWhiteSpace(trimmed) ? "api/v1" : trimmed;
         }
 
-        private static string ToPascalCase(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "Item";
-
-            var sb = new StringBuilder();
-            var word = new StringBuilder();
-
-            foreach (var ch in value)
-            {
-                if (char.IsLetterOrDigit(ch))
-                {
-                    word.Append(ch);
-                }
-                else if (word.Length > 0)
-                {
-                    AppendWord(sb, word);
-                    word.Clear();
-                }
-            }
-
-            if (word.Length > 0)
-                AppendWord(sb, word);
-
-            var result = sb.ToString();
-            return string.IsNullOrWhiteSpace(result) ? "Item" : result;
-        }
-
-        private static void AppendWord(StringBuilder sb, StringBuilder word)
-        {
-            var lower = word.ToString().ToLowerInvariant();
-            sb.Append(char.ToUpperInvariant(lower[0]));
-            if (lower.Length > 1)
-                sb.Append(lower[1..]);
-        }
-
-        private static string ToKebab(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "item";
-
-            var sb = new StringBuilder();
-            var prevDash = false;
-
-            foreach (var ch in value.Trim())
-            {
-                if (char.IsLetterOrDigit(ch))
-                {
-                    if (char.IsUpper(ch) && sb.Length > 0 && !prevDash)
-                        sb.Append('-');
-
-                    sb.Append(char.ToLowerInvariant(ch));
-                    prevDash = false;
-                }
-                else
-                {
-                    if (!prevDash && sb.Length > 0)
-                    {
-                        sb.Append('-');
-                        prevDash = true;
-                    }
-                }
-            }
-
-            var result = sb.ToString().Trim('-');
-            return string.IsNullOrWhiteSpace(result) ? "item" : result;
-        }
     }
 }

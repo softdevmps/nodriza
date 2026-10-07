@@ -1,3 +1,5 @@
+using Backend.Modulos.Sistemas.Publicacion;
+using Backend.Comun;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -45,7 +47,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 };
             }
 
-            var schemaName = ToSafeSchemaName(system.Slug);
+            var schemaName = NombresSql.EsquemaDeSistema(system.Slug);
             if (schemaName == null)
             {
                 return new ExportResult
@@ -66,7 +68,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                     };
                 }
 
-                if (ToSafeSqlName(entity.TableName) == null)
+                if (NombresSql.Normalizar(entity.TableName) == null)
                 {
                     return new ExportResult
                     {
@@ -77,7 +79,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
                 foreach (var field in entity.Fields)
                 {
-                    if (ToSafeSqlName(field.ColumnName) == null)
+                    if (NombresSql.Normalizar(field.ColumnName) == null)
                     {
                         return new ExportResult
                         {
@@ -95,7 +97,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 var metadataSql = ReadMetadataSql(contentRootPath);
                 var frontendConfig = FrontendConfigGestor.ObtenerPorSistema(system.Id);
 
-                var dbName = ToSafeSqlName(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
+                var dbName = NombresSql.Normalizar(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
                 var databaseSql = BuildDatabaseScript(
                     system,
                     schemaName,
@@ -173,7 +175,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 };
             }
 
-            var schemaName = ToSafeSchemaName(system.Slug);
+            var schemaName = NombresSql.EsquemaDeSistema(system.Slug);
             if (schemaName == null)
             {
                 return new ExportResult
@@ -194,7 +196,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                     };
                 }
 
-                if (ToSafeSqlName(entity.TableName) == null)
+                if (NombresSql.Normalizar(entity.TableName) == null)
                 {
                     return new ExportResult
                     {
@@ -205,7 +207,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
                 foreach (var field in entity.Fields)
                 {
-                    if (ToSafeSqlName(field.ColumnName) == null)
+                    if (NombresSql.Normalizar(field.ColumnName) == null)
                     {
                         return new ExportResult
                         {
@@ -242,7 +244,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 var metadataSql = ReadMetadataSql(contentRootPath);
                 var frontendConfig = FrontendConfigGestor.ObtenerPorSistema(system.Id);
 
-                var dbName = ToSafeSqlName(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
+                var dbName = NombresSql.Normalizar(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
                 var databaseSql = BuildDatabaseScript(
                     system,
                     schemaName,
@@ -649,7 +651,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
             foreach (var entity in system.Entities.OrderBy(e => e.SortOrder).ThenBy(e => e.Id))
             {
-                var route = $"/s/{system.Slug}/{ToKebab(entity.Name)}";
+                var route = $"/s/{system.Slug}/{Texto.ToKebab(entity.Name)}";
                 sb.AppendLine("IF NOT EXISTS (");
                 sb.AppendLine("    SELECT 1 FROM sb.SystemMenus sm");
                 sb.AppendLine("    JOIN sb.Systems s ON s.Id = sm.SystemId");
@@ -742,7 +744,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
                 foreach (var field in entity.Fields.OrderBy(f => f.SortOrder).ThenBy(f => f.Id))
                 {
-                    var column = $"        [{field.ColumnName}] {MapSqlType(field)}";
+                    var column = $"        [{field.ColumnName}] {MigracionEsquema.TipoSql(field)}";
                     if (field.IsIdentity && field.DataType.Equals("int", StringComparison.OrdinalIgnoreCase))
                         column += " IDENTITY(1,1)";
 
@@ -770,7 +772,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 foreach (var field in entity.Fields.OrderBy(f => f.SortOrder).ThenBy(f => f.Id))
                 {
                     var colName = field.ColumnName;
-                    var colType = MapSqlType(field);
+                    var colType = MigracionEsquema.TipoSql(field);
                     var nullable = (field.IsIdentity || field.IsPrimaryKey) ? "NOT NULL" : "NULL";
                     var identity = field.IsIdentity && field.DataType.Equals("int", StringComparison.OrdinalIgnoreCase)
                         ? " IDENTITY(1,1)"
@@ -813,7 +815,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                     continue;
 
                 var fkColumn = relation.ForeignKey.Trim();
-                if (ToSafeSqlName(fkColumn) == null)
+                if (NombresSql.Normalizar(fkColumn) == null)
                     continue;
 
                 var sourceTable = source.TableName;
@@ -1080,88 +1082,6 @@ definida, se genera una aleatoria y se muestra una sola vez en la consola del ba
 
             var result = sb.ToString().Trim('-');
             return string.IsNullOrWhiteSpace(result) ? null : result;
-        }
-
-        private static string MapSqlType(Fields field)
-        {
-            var type = field.DataType?.ToLowerInvariant();
-            return type switch
-            {
-                "string" => $"NVARCHAR({(field.MaxLength.HasValue && field.MaxLength > 0 ? field.MaxLength.Value.ToString() : "255")})",
-                "int" => "INT",
-                "decimal" => $"DECIMAL({field.Precision ?? 18},{field.Scale ?? 2})",
-                "bool" => "BIT",
-                "datetime" => "DATETIME2",
-                "guid" => "UNIQUEIDENTIFIER",
-                _ => "NVARCHAR(255)"
-            };
-        }
-
-        private static string? ToSafeSchemaName(string slug)
-        {
-            var safe = ToSafeSqlName($"sys_{slug}");
-            return safe;
-        }
-
-        private static string? ToSafeSqlName(string? input)
-        {
-            if (string.IsNullOrWhiteSpace(input))
-                return null;
-
-            var trimmed = input.Trim();
-            var sb = new StringBuilder();
-
-            foreach (var ch in trimmed)
-            {
-                if (char.IsLetterOrDigit(ch) || ch == '_')
-                {
-                    sb.Append(ch);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            if (sb.Length == 0)
-                return null;
-
-            if (char.IsDigit(sb[0]))
-                return null;
-
-            return sb.ToString();
-        }
-
-        private static string ToKebab(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "item";
-
-            var sb = new StringBuilder();
-            var prevDash = false;
-
-            foreach (var ch in value.Trim())
-            {
-                if (char.IsLetterOrDigit(ch))
-                {
-                    if (char.IsUpper(ch) && sb.Length > 0 && !prevDash)
-                        sb.Append('-');
-
-                    sb.Append(char.ToLowerInvariant(ch));
-                    prevDash = false;
-                }
-                else
-                {
-                    if (!prevDash && sb.Length > 0)
-                    {
-                        sb.Append('-');
-                        prevDash = true;
-                    }
-                }
-            }
-
-            var result = sb.ToString().Trim('-');
-            return string.IsNullOrWhiteSpace(result) ? "item" : result;
         }
 
         private static string SqlValue(string? value)

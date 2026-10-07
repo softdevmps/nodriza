@@ -39,6 +39,29 @@ namespace Backend.Tests.Unitarios
         public void Politica_de_contrasenas(string password, bool valida) =>
             Assert.Equal(valida, PoliticaContrasenas.Validar(password) == null);
 
+        // Fijan las rutas y nombres de clase generados: si cambian, cambian las URLs de los sistemas existentes.
+        [Theory]
+        [InlineData("OrdenesDeCompra", "ordenes-de-compra")]
+        [InlineData("Ordenes de compra", "ordenes-de-compra")]
+        [InlineData("productos", "productos")]
+        [InlineData("  ", "item")]
+        public void Kebab_para_rutas(string valor, string esperado) =>
+            Assert.Equal(esperado, Texto.ToKebab(valor));
+
+        [Theory]
+        [InlineData("ordenes de_compra", "OrdenesDeCompra")]
+        [InlineData("PRODUCTOS", "Productos")]
+        [InlineData("", "Item")]
+        public void PascalCase_para_clases_generadas(string valor, string esperado) =>
+            Assert.Equal(esperado, Texto.ToPascalCase(valor));
+
+        [Theory]
+        [InlineData("inventario", "sys_inventario")]
+        [InlineData("Inventario", "sys_inventario")]
+        [InlineData("con espacio", null)]
+        public void Schema_de_un_sistema(string slug, string? esperado) =>
+            Assert.Equal(esperado, NombresSql.EsquemaDeSistema(slug));
+
         [Fact]
         public void El_bloqueo_se_activa_al_quinto_fallo_y_se_limpia_con_un_exito()
         {

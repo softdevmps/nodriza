@@ -1,3 +1,4 @@
+using Backend.Comun;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using Backend.Comun.BaseDeDatos;
@@ -205,7 +206,7 @@ namespace Backend.Modulos.Sistemas.Entidades
                         };
                     }
 
-                    var schemaName = ToSafeSchemaName(sistema.Slug);
+                    var schemaName = NombresSql.EsquemaDeSistema(sistema.Slug);
                     var tableName = entidad.TableName?.Trim();
                     if (string.IsNullOrWhiteSpace(schemaName) || string.IsNullOrWhiteSpace(tableName))
                     {
@@ -290,25 +291,6 @@ namespace Backend.Modulos.Sistemas.Entidades
                     Error = $"Error al eliminar entidad: {ex.Message}"
                 };
             }
-        }
-
-        private static string? ToSafeSchemaName(string? slug)
-        {
-            if (string.IsNullOrWhiteSpace(slug))
-                return null;
-
-            var normalized = slug.Trim().ToLowerInvariant();
-            if (normalized.Length == 0)
-                return null;
-
-            var safe = new string(normalized
-                .Where(ch => char.IsLetterOrDigit(ch) || ch == '_')
-                .ToArray());
-
-            if (string.IsNullOrWhiteSpace(safe))
-                return null;
-
-            return $"sys_{safe}";
         }
 
         private static void DropRuntimeTable(SystemBaseContext context, string schemaName, string tableName)

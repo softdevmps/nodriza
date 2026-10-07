@@ -1,3 +1,4 @@
+using Backend.Comun;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Backend.Comun.BaseDeDatos;
@@ -36,7 +37,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 };
             }
 
-            var schemaName = ToSafeSchemaName(system.Slug);
+            var schemaName = NombresSql.EsquemaDeSistema(system.Slug);
             if (schemaName == null)
             {
                 return new PublicarResult
@@ -57,7 +58,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
                     };
                 }
 
-                if (ToSafeSqlName(entity.TableName) == null)
+                if (NombresSql.Normalizar(entity.TableName) == null)
                 {
                     return new PublicarResult
                     {
@@ -68,7 +69,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
 
                 foreach (var field in entity.Fields)
                 {
-                    if (ToSafeSqlName(field.ColumnName) == null)
+                    if (NombresSql.Normalizar(field.ColumnName) == null)
                     {
                         return new PublicarResult
                         {
@@ -244,7 +245,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
 
                 foreach (var field in entity.Fields.OrderBy(f => f.SortOrder).ThenBy(f => f.Id))
                 {
-                    var column = $"        [{field.ColumnName}] {MapSqlType(field)}";
+                    var column = $"        [{field.ColumnName}] {MigracionEsquema.TipoSql(field)}";
                     if (field.IsIdentity && field.DataType.Equals("int", StringComparison.OrdinalIgnoreCase))
                         column += " IDENTITY(1,1)";
 
@@ -311,7 +312,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
                     continue;
 
                 var fkColumn = relation.ForeignKey.Trim();
-                if (ToSafeSqlName(fkColumn) == null)
+                if (NombresSql.Normalizar(fkColumn) == null)
                     continue;
 
                 var sourceTable = source.TableName;
@@ -427,7 +428,7 @@ END";
         }
 
         /// <summary>Ruta del menú runtime de una entidad (la misma al crearlo y al borrarlo).</summary>
-        public static string RutaMenu(string slug, string nombreEntidad) => $"/s/{slug}/{ToKebab(nombreEntidad)}";
+        public static string RutaMenu(string slug, string nombreEntidad) => $"/s/{slug}/{Texto.ToKebab(nombreEntidad)}";
 
         private static string ActionLabel(string action)
         {
@@ -441,73 +442,5 @@ END";
             };
         }
 
-        private static string ToKebab(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "item";
-
-            var sb = new StringBuilder();
-            var prevDash = false;
-
-            foreach (var ch in value.Trim())
-            {
-                if (char.IsLetterOrDigit(ch))
-                {
-                    if (char.IsUpper(ch) && sb.Length > 0 && !prevDash)
-                        sb.Append('-');
-
-                    sb.Append(char.ToLowerInvariant(ch));
-                    prevDash = false;
-                }
-                else
-                {
-                    if (!prevDash && sb.Length > 0)
-                    {
-                        sb.Append('-');
-                        prevDash = true;
-                    }
-                }
-            }
-
-            var result = sb.ToString().Trim('-');
-            return string.IsNullOrWhiteSpace(result) ? "item" : result;
-        }
-
-        private static string MapSqlType(Fields field) => MigracionEsquema.TipoSql(field);
-
-        private static string? ToSafeSchemaName(string slug)
-        {
-            var safe = ToSafeSqlName($"sys_{slug}");
-            return safe;
-        }
-
-        private static string? ToSafeSqlName(string? input)
-        {
-            if (string.IsNullOrWhiteSpace(input))
-                return null;
-
-            var trimmed = input.Trim();
-            var sb = new StringBuilder();
-
-            foreach (var ch in trimmed)
-            {
-                if (char.IsLetterOrDigit(ch) || ch == '_')
-                {
-                    sb.Append(ch);
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            if (sb.Length == 0)
-                return null;
-
-            if (char.IsDigit(sb[0]))
-                return null;
-
-            return sb.ToString();
-        }
     }
 }

@@ -24,6 +24,17 @@ namespace Backend.Comun
         public static bool EsIdentificadorValido(string? nombre) =>
             !string.IsNullOrWhiteSpace(nombre) && Identificador.IsMatch(nombre);
 
+        /// <summary>El nombre sin espacios alrededor si es un identificador válido; si no, null.</summary>
+        public static string? Normalizar(string? nombre)
+        {
+            var limpio = nombre?.Trim();
+            return EsIdentificadorValido(limpio) ? limpio : null;
+        }
+
+        /// <summary>Schema SQL de un sistema (sys_&lt;slug&gt;), o null si el slug no es seguro.</summary>
+        public static string? EsquemaDeSistema(string? slug) =>
+            string.IsNullOrWhiteSpace(slug) ? null : Normalizar($"sys_{slug.Trim().ToLowerInvariant()}");
+
         public static bool EsRutaValida(string? ruta) =>
             !string.IsNullOrWhiteSpace(ruta) && Ruta.IsMatch(ruta.Trim('/'));
     }

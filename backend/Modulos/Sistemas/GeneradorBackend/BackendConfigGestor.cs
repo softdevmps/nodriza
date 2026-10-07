@@ -1,3 +1,4 @@
+using Backend.Comun;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Backend.Comun.BaseDeDatos;
@@ -167,7 +168,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
                 Name = entity.Name,
                 DisplayName = entity.DisplayName,
                 IsEnabled = true,
-                Route = ToKebab(entity.Name),
+                Route = Texto.ToKebab(entity.Name),
                 RequireAuth = null,
                 SoftDelete = softDeleteField != null,
                 SoftDeleteFieldId = softDeleteField?.Id,
@@ -335,38 +336,6 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             context.SaveChanges();
 
             return module.Id;
-        }
-
-        private static string ToKebab(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "item";
-
-            var sb = new System.Text.StringBuilder();
-            var prevDash = false;
-
-            foreach (var ch in value.Trim())
-            {
-                if (char.IsLetterOrDigit(ch))
-                {
-                    if (char.IsUpper(ch) && sb.Length > 0 && !prevDash)
-                        sb.Append('-');
-
-                    sb.Append(char.ToLowerInvariant(ch));
-                    prevDash = false;
-                }
-                else
-                {
-                    if (!prevDash && sb.Length > 0)
-                    {
-                        sb.Append('-');
-                        prevDash = true;
-                    }
-                }
-            }
-
-            var result = sb.ToString().Trim('-');
-            return string.IsNullOrWhiteSpace(result) ? "item" : result;
         }
 
         private class BackendSystemConfigData
