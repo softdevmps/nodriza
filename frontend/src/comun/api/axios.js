@@ -1,7 +1,8 @@
 import axios from 'axios'
 
 const api = axios.create({
-    baseURL: 'http://localhost:5032/api/v1',
+    // VITE_API_URL permite apuntar a otra API (p. ej. un entorno de pruebas); por defecto, la fábrica local.
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5032/api/v1',
     headers: {
         'Content-Type': 'application/json'
     }

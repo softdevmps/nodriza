@@ -1,0 +1,124 @@
+.empty-state {
+  padding: 24px;
+  color: #6b7280;
+}
+
+.mono {
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.backend-console {
+  background: #0b1020;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  height: 220px;
+  overflow-y: auto;
+  font-size: 0.8rem;
+}
+
+.backend-log-line {
+  white-space: pre-wrap;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.backend-log-time {
+  color: #94a3b8;
+  margin-right: 6px;
+}
+
+.backend-log-level {
+  color: #60a5fa;
+  margin-right: 6px;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+.backend-log-error {
+  color: #fca5a5;
+}
+
+.backend-log-stdout {
+  color: #e2e8f0;
+}
+
+.data-grid {
+  align-items: stretch;
+}
+
+.data-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.data-card-body {
+  flex: 1 1 auto;
+  min-height: clamp(260px, 36vh, 420px);
+  display: flex;
+  flex-direction: column;
+}
+
+.data-card-body :deep(.v-data-table) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.data-card-body :deep(.v-table__wrapper) {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.data-card-body :deep(.v-data-table-footer) {
+  flex: 0 0 auto;
+}
+
+.data-empty {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.table-actions :deep(.v-btn) {
+  min-width: 32px;
+}
+
+.api-textarea :deep(textarea) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.port-card {
+  border-radius: 12px;
+}
+
+.port-value {
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.frontend-fields-table .drag-handle,
+.frontend-entities-table .drag-handle {
+  cursor: grab;
+  color: #64748b;
+}
+
+.frontend-field-row.is-drag-over {
+  background: #eef2ff;
+}
+
+.frontend-fields-table .drag-cell,
+.frontend-entities-table .drag-cell {
+  width: 36px;
+}

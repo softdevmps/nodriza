@@ -134,7 +134,8 @@ cd frontend && npm install && npm run dev   # entrar con admin/admin
 
 | # | Problema |
 |---|---|
-| D1 | Archivos enormes que mezclan responsabilidades. `SistemasController` mezcla CRUD, consola SQL, export y manejo de procesos. `SistemaEditor.vue` tiene 4 pestañas completas en un solo archivo. |
+| ~~D1~~ | (resuelto, ver arriba) Archivos enormes que mezclan responsabilidades. `SistemasController` mezcla CRUD, consola SQL, export y manejo de procesos. `SistemaEditor.vue` tiene 4 pestañas completas en un solo archivo. |
+| ✅ D1 | ~~Archivos enormes~~: `SistemasController` y `SistemaEditor.vue` divididos (Fase 4.1/4.2).
 | ✅ D2 | Helpers duplicados (`ToSafeSqlName`, `ToKebab`, `MapSqlType`, `ToPascalCase`) en 4 o 5 archivos, y con pequeñas diferencias entre sí. |
 | D3 | El generador de backend escribe el código C# a partir de strings dentro de C#. Es difícil de leer y de mantener. |
 | D4 | `frontend/` y `frontend-runtime/` duplican layout, auth, utilidades y el runtime, y ya divergieron. |
@@ -205,8 +206,8 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 
 | # | Tarea | Esf. | Criterio de terminado |
 |---|---|---|---|
-| 4.1 | Dividir `SistemasController` en `SistemasController`, `ConsolaSqlController`, `ExportacionController` y `HerramientasController`, con las mismas rutas | M | Ningún controller pasa de 300 líneas |
-| 4.2 | Dividir `SistemaEditor.vue` en un componente por pestaña | M | Ningún `.vue` pasa de 800 líneas |
+| ✅ 4.1 | Dividir `SistemasController` (hecho: 1.452 → 148 líneas; ConsolaSql/, Exportacion/, Herramientas/ y controllers de generación) en `SistemasController`, `ConsolaSqlController`, `ExportacionController` y `HerramientasController`, con las mismas rutas | M | Ningún controller pasa de 300 líneas |
+| ✅ 4.2 | Dividir `SistemaEditor.vue` en un componente por pestaña (hecho: 3.571 → 122 líneas + 7 componentes ≤ 460; lógica en `useSistemaEditor.js`, que todavía se puede partir por pestaña) | M | Ningún `.vue` pasa de 800 líneas |
 | 4.3 | Gestores inyectables (DI + `DbContext` por request) | L | Los gestores se pueden testear con dependencias falsas |
 | 4.4 | Generador de backend con archivos de plantilla (Scriban o similar) en vez de strings en C# | L | Las plantillas son archivos `.cs` legibles |
 | 4.5 | Reducir la duplicación entre `frontend` y `frontend-runtime` | M | Un cambio de layout se hace en un solo lugar |
@@ -252,5 +253,5 @@ Cada arreglo de la Fase 1 se da por terminado cuando su prueba pasa en verde.
 ## 8. Próximo paso recomendado
 
 1. Mergear en orden: `refactor/estructura-por-modulos` → `fix/autorizacion-admin-y-decimales` → `chore/fase-2-calidad` (0.1).
-2. **Fase 4:** dividir `SistemasController` (4.1) y `SistemaEditor.vue` (4.2) con la red de tests ya armada.
+2. **Fase 4 restante:** gestores inyectables (4.3), plantillas para el generador (4.4) y reducir la duplicación entre `frontend` y `frontend-runtime` (4.5).
 3. **Fase 3 pendiente:** paginación del servidor en la UI del runtime (3.4) y renombrados en el diseño (L1).
