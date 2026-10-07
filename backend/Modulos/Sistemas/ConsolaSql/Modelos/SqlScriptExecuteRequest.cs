@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Backend.Modulos.Sistemas.Modelos
+namespace Backend.Modulos.Sistemas.ConsolaSql.Modelos
 {
     public class SqlScriptExecuteRequest
     {

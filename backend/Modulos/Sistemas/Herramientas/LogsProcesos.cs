@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 
 namespace Backend.Modulos.Sistemas.Herramientas
 {
-    public sealed class BackendLogEntry
+    public sealed class LogEntrada
     {
         public long Id { get; init; }
         public DateTime Timestamp { get; init; }
@@ -10,14 +10,15 @@ namespace Backend.Modulos.Sistemas.Herramientas
         public string Message { get; init; } = string.Empty;
     }
 
-    public sealed class BackendLogBuffer
+    /// <summary>Últimas N líneas de log de un proceso (circular, seguro entre hilos).</summary>
+    public sealed class LogBuffer
     {
         private readonly int _capacity;
-        private readonly List<BackendLogEntry> _entries = new();
+        private readonly List<LogEntrada> _entries = new();
         private readonly object _lock = new();
         private long _nextId = 1;
 
-        public BackendLogBuffer(int capacity)
+        public LogBuffer(int capacity)
         {
             _capacity = capacity;
         }
@@ -29,24 +30,20 @@ namespace Backend.Modulos.Sistemas.Herramientas
 
             lock (_lock)
             {
-                var entry = new BackendLogEntry
+                _entries.Add(new LogEntrada
                 {
                     Id = _nextId++,
                     Timestamp = DateTime.UtcNow,
                     Level = level,
                     Message = message
-                };
+                });
 
-                _entries.Add(entry);
                 if (_entries.Count > _capacity)
-                {
-                    var removeCount = _entries.Count - _capacity;
-                    _entries.RemoveRange(0, removeCount);
-                }
+                    _entries.RemoveRange(0, _entries.Count - _capacity);
             }
         }
 
-        public IReadOnlyList<BackendLogEntry> Read(long after, int take, out long lastId)
+        public IReadOnlyList<LogEntrada> Read(long after, int take, out long lastId)
         {
             lock (_lock)
             {
@@ -61,26 +58,23 @@ namespace Backend.Modulos.Sistemas.Herramientas
         }
     }
 
-    public static class BackendProcessLogStore
+    /// <summary>Logs en memoria de los procesos (backend/frontend) que la fábrica levanta por sistema.</summary>
+    public static class LogsProcesos
     {
-        private const int DefaultCapacity = 500;
-        private static readonly ConcurrentDictionary<int, BackendLogBuffer> Buffers = new();
+        private const int Capacidad = 500;
+        private static readonly ConcurrentDictionary<(Componente, int), LogBuffer> Buffers = new();
 
-        public static BackendLogBuffer Get(int systemId)
-        {
-            return Buffers.GetOrAdd(systemId, _ => new BackendLogBuffer(DefaultCapacity));
-        }
+        public static LogBuffer Get(Componente componente, int systemId) =>
+            Buffers.GetOrAdd((componente, systemId), _ => new LogBuffer(Capacidad));
 
-        public static BackendLogBuffer Reset(int systemId)
+        public static LogBuffer Reset(Componente componente, int systemId)
         {
-            var buffer = new BackendLogBuffer(DefaultCapacity);
-            Buffers[systemId] = buffer;
+            var buffer = new LogBuffer(Capacidad);
+            Buffers[(componente, systemId)] = buffer;
             return buffer;
         }
 
-        public static void Add(int systemId, string level, string message)
-        {
-            Get(systemId).Add(level, message);
-        }
+        public static void Add(Componente componente, int systemId, string level, string message) =>
+            Get(componente, systemId).Add(level, message);
     }
 }

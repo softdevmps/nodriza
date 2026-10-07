@@ -36,17 +36,18 @@ backend/
     ├── Menu/
     ├── DevTools/           Reiniciar el backend de la fábrica (solo DEV)
     └── Sistemas/
-        ├── SistemasController.cs   Alta/edición de sistemas, consola SQL, iniciar/detener procesos
+        ├── SistemasController.cs   Alta, edición, borrado (archivado) y publicación de sistemas
         ├── SistemasGestor.cs
         ├── Entidades/          Entidades de un sistema (tablas que se van a crear)
         ├── Campos/             Campos de cada entidad (columnas)
         ├── Relaciones/         FKs entre entidades
         ├── Datos/              CRUD genérico sobre las tablas publicadas (/s/<slug>)
-        ├── Publicacion/        "Publicar DB": crea el schema sys_<slug>, menús y permisos
-        ├── GeneradorBackend/   Genera systems/<slug>/backend
+        ├── Publicacion/        "Publicar DB": schema sys_<slug>, migraciones seguras (MigracionEsquema), menús y permisos
+        ├── ConsolaSql/         Consola SQL aislada (ConsolaSqlGestor) y sincronización de metadata (SincronizadorMetadata)
+        ├── GeneradorBackend/   Genera systems/<slug>/backend; credenciales SQL propias por sistema (CredencialesSistema)
         ├── GeneradorFrontend/  Genera systems/<slug>/frontend (copia frontend-runtime/)
         ├── Exportacion/        ZIP / workspace con todo el sistema
-        └── Herramientas/       Logs de los procesos dotnet/npm de los sistemas generados
+        └── Herramientas/       Iniciar/detener backend y frontend generados y sus logs (ProcesosSistemas, LogsProcesos)
 ```
 
 ### Cómo es un módulo por dentro
