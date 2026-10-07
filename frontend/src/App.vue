@@ -6,8 +6,8 @@
 
 <script setup>
 import { computed, ref, watchEffect, provide } from 'vue'
-import frontendConfig from './config/frontend-config.json'
-import { vuetify } from './plugins/vuetify'
+import frontendConfig from './comun/config/frontend-config.json'
+import { vuetify } from './comun/plugins/vuetify'
 
 const system = frontendConfig?.system || {}
 const theme = frontendConfig?.theme || {}

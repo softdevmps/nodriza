@@ -8,8 +8,8 @@ dotnet ef dbcontext scaffold \
 "Server=$DB_SERVER;Database=$DB_NAME;User Id=$DB_USER;Password=$DB_PASSWORD;TrustServerCertificate=True;" \
 Microsoft.EntityFrameworkCore.SqlServer \
 --context SystemBaseContext \
---context-dir Data \
---output-dir Models/Entidades \
+--context-dir Comun/BaseDeDatos \
+--output-dir Comun/BaseDeDatos/Tablas \
 --use-database-names \
 --no-pluralize \
 --no-onconfiguring \

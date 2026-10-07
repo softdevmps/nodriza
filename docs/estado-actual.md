@@ -131,7 +131,7 @@ Se agrego un generador para crear un frontend runtime por sistema:
   - Copia la UI base y elimina vistas administrativas (solo runtime).
   - Router reducido a `Home` + `SistemaRuntime`.
   - `axios.js` apunta al backend del sistema (`http://localhost:5032+systemId/{apiBase}`).
-- Se genera `src/config/frontend-config.json` con la configuracion guardada en el diseñador.
+- Se genera `src/comun/config/frontend-config.json` con la configuracion guardada en el diseñador.
 - El frontend generado consume el backend del sistema (no el de SystemBase).
 
 ### 5.4 Configuracion visual de backend
@@ -286,23 +286,23 @@ Endpoints:
 
 ## 15. Archivos clave
 - Backend:
-  - `backend/Negocio/Gestores/SistemasPublicador.cs`
-  - `backend/Negocio/Gestores/SistemasExportador.cs`
-  - `backend/Negocio/Generadores/SistemasBackendGenerator.cs`
-  - `backend/Models/Sistemas/ExportResult.cs`
-  - `backend/Models/Sistemas/BackendGenerateResult.cs`
-  - `backend/Negocio/Gestores/DatosGestor.cs`
-  - `backend/Negocio/Gestores/RelacionesGestor.cs`
-  - `backend/Negocio/Gestores/PermisosGestor.cs`
-  - `backend/Negocio/Gestores/MenuGestor.cs`
-  - `backend/Data/SystemBaseContext.cs`
+  - `backend/Modulos/Sistemas/Publicacion/SistemasPublicador.cs`
+  - `backend/Modulos/Sistemas/Exportacion/SistemasExportador.cs`
+  - `backend/Modulos/Sistemas/GeneradorBackend/SistemasBackendGenerator.cs`
+  - `backend/Modulos/Sistemas/Exportacion/Modelos/ExportResult.cs`
+  - `backend/Modulos/Sistemas/GeneradorBackend/Modelos/BackendGenerateResult.cs`
+  - `backend/Modulos/Sistemas/Datos/DatosGestor.cs`
+  - `backend/Modulos/Sistemas/Relaciones/RelacionesGestor.cs`
+  - `backend/Modulos/Sistemas/Publicacion/PermisosGestor.cs`
+  - `backend/Modulos/Menu/MenuGestor.cs`
+  - `backend/Comun/BaseDeDatos/SystemBaseContext.cs`
 - Frontend:
-  - `frontend/src/views/Sistema/Sistemas.vue`
-  - `frontend/src/views/Sistema/SistemaEditor.vue`
-  - `frontend/src/views/Sistema/SistemaRuntime.vue`
-  - `frontend/src/components/sistemas/RegistroDialog.vue`
-  - `frontend/src/components/sistemas/RelacionDialog.vue`
-  - `frontend/src/components/roles/RolPermisosDialog.vue`
-  - `frontend/src/components/Layouts/MainLayout.vue`
+  - `frontend/src/modulos/sistemas/Sistemas.vue`
+  - `frontend/src/modulos/sistemas/SistemaEditor.vue`
+  - `frontend/src/modulos/sistemas/SistemaRuntime.vue`
+  - `frontend/src/modulos/sistemas/componentes/RegistroDialog.vue`
+  - `frontend/src/modulos/sistemas/componentes/RelacionDialog.vue`
+  - `frontend/src/modulos/roles/componentes/RolPermisosDialog.vue`
+  - `frontend/src/comun/layout/MainLayout.vue`
   - `frontend/src/main.js`
-  - `frontend/src/store/menu.store.js`
+  - `frontend/src/comun/store/menu.store.js`

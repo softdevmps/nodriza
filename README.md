@@ -7,11 +7,13 @@ Fábrica de sistemas: se diseñan entidades, campos y relaciones desde la web y,
 - `backend/`: API de la fábrica (.NET 8, EF Core + SQL directo, JWT).
 - `frontend/`: UI de la fábrica (Vue 3 + Vuetify + Vite).
 - `frontend-runtime/`: plantilla que copia el generador de frontend.
-- `backend/db/`: scripts SQL de la base de la fábrica (dbo + schema `sb`).
+- `backend/sql/`: scripts SQL de la base de la fábrica (dbo + schema `sb`).
 - `db-service/`: SQL Server en Docker.
 - `systems/`: sistemas generados (`systems/<slug>/backend`, `systems/<slug>/frontend`, `ports.json`). Ignorado por git.
 - `exports/`: ZIPs exportados. Ignorado por git.
 - `docs/`: documentación funcional.
+
+Backend y frontend están organizados por módulo (Auth, Usuarios, Roles, Menu, Sistemas). Ver [docs/estructura.md](docs/estructura.md) para saber dónde va cada cosa.
 
 ## Requisitos
 
@@ -37,7 +39,7 @@ docker compose --env-file ../backend/.env up -d
 ```
 
 - `sqlserver`: SQL Server 2022 en `localhost:1433` (override con `DB_PORT`), datos en un volumen de Docker.
-- `sqlserver-init`: crea la base, las tablas `dbo` y el schema `sb` (scripts idempotentes de `backend/db/`).
+- `sqlserver-init`: crea la base, las tablas `dbo` y el schema `sb` (scripts idempotentes de `backend/sql/`).
 
 Resetear desde cero: `docker compose --env-file ../backend/.env down -v` y volver a `up -d`.
 

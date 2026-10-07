@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import Login from '../views/Login.vue'
-import Register from '../views/Register.vue'
-import Home from '../views/Home.vue'
-import SistemaRuntime from '../views/Sistema/SistemaRuntime.vue'
-import MainLayout from '../components/Layouts/MainLayout.vue'
+import Login from '../modulos/auth/Login.vue'
+import Register from '../modulos/auth/Register.vue'
+import Home from '../modulos/home/Home.vue'
+import SistemaRuntime from '../modulos/runtime/SistemaRuntime.vue'
+import MainLayout from '../comun/layout/MainLayout.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },

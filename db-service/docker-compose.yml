@@ -41,7 +41,7 @@ services:
       SA_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-systemBase}
     volumes:
-      - ../backend/db:/scripts:ro
+      - ../backend/sql:/scripts:ro
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |

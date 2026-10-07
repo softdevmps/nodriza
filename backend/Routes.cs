@@ -1,3 +1,5 @@
+using Backend.Comun.BaseDeDatos.Tablas;
+
 namespace Backend
 {
     public static class Routes
