@@ -2249,13 +2249,13 @@ const frontendSortOptions = [
   'desc'
 ]
 
-const baseBackendPort = 5032
-const backendPort = computed(() => baseBackendPort + (Number.isFinite(systemId) ? systemId : 0))
+// Los puertos de los sistemas generados los define el backend (Comun/PuertosSistemas.cs)
+const systembasePort = 5032
+const backendPort = computed(() => sistema.value?.puertoBackend ?? '—')
 const backendBaseUrl = computed(() => `http://localhost:${backendPort.value}`)
-const systembaseBaseUrl = computed(() => `http://localhost:${baseBackendPort}`)
+const systembaseBaseUrl = computed(() => `http://localhost:${systembasePort}`)
 const portsFilePath = computed(() => 'systems/ports.json')
-const baseFrontendPort = 5173
-const frontendPort = computed(() => baseFrontendPort + (Number.isFinite(systemId) ? systemId : 0))
+const frontendPort = computed(() => sistema.value?.puertoFrontend ?? '—')
 const frontendBaseUrl = computed(() => `http://localhost:${frontendPort.value}`)
 const sqlTargetSchema = computed(() => {
   const slug = (sistema.value?.slug || '').trim().toLowerCase()

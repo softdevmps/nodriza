@@ -493,7 +493,7 @@ app.Run();
 
         private static int GetBackendPort(int systemId)
         {
-            return 5032 + systemId;
+            return PuertosSistemas.Backend(systemId);
         }
 
         private static void WritePortsRegistry(string outputRoot, SystemBaseContext context)
@@ -520,7 +520,7 @@ app.Run();
                 var payload = new
                 {
                     generatedAt = DateTime.UtcNow,
-                    basePort = 5032,
+                    basePort = PuertosSistemas.BaseBackend,
                     systems
                 };
 

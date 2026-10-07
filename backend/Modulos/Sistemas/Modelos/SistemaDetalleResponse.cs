@@ -1,3 +1,4 @@
+using Backend.Comun;
 namespace Backend.Modulos.Sistemas.Modelos
 {
     public class SistemaDetalleResponse
@@ -13,5 +14,9 @@ namespace Backend.Modulos.Sistemas.Modelos
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? PublishedAt { get; set; }
+
+        /// <summary>Puertos locales del backend y frontend generados (ver Comun/PuertosSistemas).</summary>
+        public int PuertoBackend => PuertosSistemas.Backend(Id);
+        public int PuertoFrontend => PuertosSistemas.Frontend(Id);
     }
 }

@@ -71,8 +71,8 @@ npm run dev
 2. Diseñar entidades, campos y relaciones en `/sistemas/{id}`.
 3. **Publicar DB**: crea el schema `sys_<slug>` con tablas, FKs, menús y permisos.
 4. Operar datos desde el runtime genérico `/s/<slug>`.
-5. **Generar backend**: proyecto .NET en `systems/<slug>/backend` (puerto `5032 + id`).
-6. **Generar frontend**: copia de `frontend-runtime` en `systems/<slug>/frontend` (puerto `5173 + id`).
+5. **Generar backend**: proyecto .NET en `systems/<slug>/backend` (puerto `PUERTO_BASE_BACKEND + id`, por defecto `6000 + id`).
+6. **Generar frontend**: copia de `frontend-runtime` en `systems/<slug>/frontend` (puerto `PUERTO_BASE_FRONTEND + id`, por defecto `7000 + id`).
 7. **Herramientas**: iniciar/detener backend y frontend generados, logs y consola API.
 8. **Exportar**: ZIP o workspace con `database.sql`, backend, frontend y `manifest.json`.
 

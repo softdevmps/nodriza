@@ -130,7 +130,7 @@ Se agrego un generador para crear un frontend runtime por sistema:
 - Salida: `systems/<slug>/frontend/`
   - Copia la UI base y elimina vistas administrativas (solo runtime).
   - Router reducido a `Home` + `SistemaRuntime`.
-  - `axios.js` apunta al backend del sistema (`http://localhost:5032+systemId/{apiBase}`).
+  - `axios.js` apunta al backend del sistema (`http://localhost:{PUERTO_BASE_BACKEND + systemId}/{apiBase}`, por defecto 6000 + id).
 - Se genera `src/comun/config/frontend-config.json` con la configuracion guardada en el diseñador.
 - El frontend generado consume el backend del sistema (no el de SystemBase).
 

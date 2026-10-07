@@ -414,6 +414,10 @@ namespace Backend.Modulos.Sistemas
                 return Ok(new { status = "running", message = "El backend ya esta en ejecucion." });
             }
 
+            var puertoBackend = PuertosSistemas.Backend(id);
+            if (PuertosSistemas.Ocupado(puertoBackend))
+                return BadRequest(new { message = $"El puerto {puertoBackend} está ocupado por otro programa. Liberalo o cambiá PUERTO_BASE_BACKEND en el .env de la fábrica." });
+
             var logBuffer = BackendProcessLogStore.Reset(id);
             logBuffer.Add("info", "Iniciando backend (dotnet watch run)...");
 
@@ -549,6 +553,10 @@ namespace Backend.Modulos.Sistemas
                 return Ok(new { status = "running", message = "El frontend ya esta en ejecucion." });
             }
 
+            var puertoFrontend = PuertosSistemas.Frontend(id);
+            if (PuertosSistemas.Ocupado(puertoFrontend))
+                return BadRequest(new { message = $"El puerto {puertoFrontend} está ocupado por otro programa. Liberalo o cambiá PUERTO_BASE_FRONTEND en el .env de la fábrica." });
+
             var logBuffer = FrontendProcessLogStore.Reset(id);
             logBuffer.Add("info", "Iniciando frontend (npm run dev)...");
 
@@ -573,7 +581,8 @@ namespace Backend.Modulos.Sistemas
             var startInfo = new ProcessStartInfo
             {
                 FileName = "npm",
-                Arguments = $"run dev -- --port {port}",
+                // --strictPort: si el puerto está tomado, Vite falla en vez de saltar a otro en silencio
+                Arguments = $"run dev -- --port {port} --strictPort",
                 WorkingDirectory = frontendPath,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -671,7 +680,7 @@ namespace Backend.Modulos.Sistemas
             try
             {
                 var basePath = NormalizeApiBase(BackendConfigGestor.ObtenerPorSistema(systemId)?.System?.ApiBase);
-                var port = 5032 + systemId;
+                var port = PuertosSistemas.Backend(systemId);
                 var url = $"http://localhost:{port}{basePath}/dev/ping";
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                 using var response = await Http.GetAsync(url, cts.Token);
@@ -692,7 +701,7 @@ namespace Backend.Modulos.Sistemas
 
         private static int GetFrontendPort(int systemId)
         {
-            return 5173 + systemId;
+            return PuertosSistemas.Frontend(systemId);
         }
 
         private async Task<bool> IsFrontendOnline(int systemId)

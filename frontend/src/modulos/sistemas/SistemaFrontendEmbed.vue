@@ -71,8 +71,6 @@ const online = ref(null)
 const error = ref('')
 const iframeKey = ref(0)
 
-const baseFrontendPort = 5173
-
 const statusLabel = computed(() => {
   if (online.value === true) return 'Online'
   if (online.value === false) return 'Offline'
@@ -113,8 +111,7 @@ async function cargarSistema() {
     sistema.value = data
     const systemId = Number(data?.id)
     if (!systemId) throw new Error('Sistema no encontrado.')
-    const port = baseFrontendPort + systemId
-    frontendUrl.value = `http://localhost:${port}`
+    frontendUrl.value = `http://localhost:${data.puertoFrontend}`
     await checkOnline(systemId)
   } catch (err) {
     error.value = err?.response?.data?.message || err?.message || 'No se pudo cargar el frontend.'

@@ -1,3 +1,4 @@
+using Backend.Comun;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -71,7 +72,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             if (string.IsNullOrWhiteSpace(apiBase))
                 apiBase = "api/v1";
 
-            var port = 5032 + systemId;
+            var port = PuertosSistemas.Backend(systemId);
             var baseUrl = $"http://localhost:{port}/{apiBase}";
 
             var axiosPath = Path.Combine(frontendPath, "src", "comun", "api", "axios.js");
