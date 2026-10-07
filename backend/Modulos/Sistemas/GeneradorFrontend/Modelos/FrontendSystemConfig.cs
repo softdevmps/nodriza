@@ -17,8 +17,5 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend.Modelos
         public string Currency { get; set; } = "ARS";
         public string AuthMode { get; set; } = "local";
         public string AuthBaseUrl { get; set; } = "http://localhost:5032/api/v1";
-        public string SeedAdminUser { get; set; } = "admin";
-        public string SeedAdminPassword { get; set; } = "admin";
-        public string SeedAdminEmail { get; set; } = "admin@local";
     }
 }

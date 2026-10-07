@@ -957,38 +957,6 @@
                   </v-col>
                 </v-row>
 
-                <v-divider class="my-4" />
-
-                <v-row>
-                  <v-col cols="12" md="4">
-                    <v-text-field
-                      v-model="frontendConfig.system.seedAdminUser"
-                      label="Seed admin usuario"
-                      density="compact"
-                      hint="Usuario por defecto en export"
-                      persistent-hint
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-text-field
-                      v-model="frontendConfig.system.seedAdminPassword"
-                      label="Seed admin contraseña"
-                      type="password"
-                      density="compact"
-                      hint="Password por defecto en export"
-                      persistent-hint
-                    />
-                  </v-col>
-                  <v-col cols="12" md="4">
-                    <v-text-field
-                      v-model="frontendConfig.system.seedAdminEmail"
-                      label="Seed admin email"
-                      density="compact"
-                      hint="Email por defecto en export"
-                      persistent-hint
-                    />
-                  </v-col>
-                </v-row>
               </v-card-text>
             </v-card>
           </v-col>
@@ -2246,10 +2214,7 @@ const frontendConfig = ref({
     locale: 'es-AR',
     currency: 'ARS',
     authMode: 'local',
-    authBaseUrl: 'http://localhost:5032/api/v1',
-    seedAdminUser: 'admin',
-    seedAdminPassword: 'admin',
-    seedAdminEmail: 'admin@local'
+    authBaseUrl: 'http://localhost:5032/api/v1'
   },
   entities: []
 })
@@ -3369,14 +3334,6 @@ function ensureFrontendSystemConfig(systemConfig) {
   if (!systemConfig) return
   if (!systemConfig.authMode) systemConfig.authMode = 'local'
   if (!systemConfig.authBaseUrl) systemConfig.authBaseUrl = 'http://localhost:5032/api/v1'
-  if (!systemConfig.seedAdminUser) systemConfig.seedAdminUser = 'admin'
-  if (systemConfig.seedAdminPassword === undefined || systemConfig.seedAdminPassword === null || systemConfig.seedAdminPassword === '') {
-    systemConfig.seedAdminPassword = 'admin'
-  }
-  if (!systemConfig.seedAdminEmail) {
-    const user = systemConfig.seedAdminUser || 'admin'
-    systemConfig.seedAdminEmail = `${user}@local`
-  }
 }
 
 function ensureFrontendEntityConfig(entityConfig) {

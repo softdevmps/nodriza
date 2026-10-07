@@ -18,10 +18,7 @@
     "locale": "es-AR",
     "currency": "ARS",
     "authMode": "local",
-    "authBaseUrl": "http://localhost:5032/api/v1",
-    "seedAdminUser": "admin",
-    "seedAdminPassword": "admin",
-    "seedAdminEmail": "admin@local"
+    "authBaseUrl": "http://localhost:5032/api/v1"
   },
   "entities": [],
   "theme": {

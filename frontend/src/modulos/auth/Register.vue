@@ -53,6 +53,7 @@
 <script setup>
 import { ref } from 'vue'
 import { authService } from './auth.service'
+import { mensajeError } from '../../comun/utils/mensajeError.js'
 
 const loading = ref(false)
 const error = ref('')
@@ -74,8 +75,8 @@ async function register() {
     try {
         await authService.register(form.value)
         success.value = true
-    } catch {
-        error.value = 'No se pudo crear el usuario'
+    } catch (e) {
+        error.value = mensajeError(e, 'No se pudo crear el usuario')
     } finally {
         loading.value = false
     }

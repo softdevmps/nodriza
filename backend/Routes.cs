@@ -10,6 +10,7 @@ namespace Backend
             {
                 public const string Login = "api/v1/auth/login";
                 public const string Registrar = "api/v1/auth/registrar";
+                public const string Opciones = "api/v1/auth/opciones";
             }
 
             public static class Menu

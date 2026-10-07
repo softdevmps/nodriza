@@ -20,5 +20,9 @@ namespace Backend.Comun.Seguridad
 
         public static int JWT_EXPIRE_MINUTES =>
             int.Parse(Environment.GetEnvironmentVariable("JWT_EXPIRE_MINUTES"));
+
+        /// <summary>Registro público de usuarios. Cerrado por defecto: el alta la hace un admin.</summary>
+        public static bool REGISTRO_PUBLICO =>
+            bool.TryParse(Environment.GetEnvironmentVariable("REGISTRO_PUBLICO"), out var habilitado) && habilitado;
     }
 }

@@ -94,21 +94,12 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
                 var metadataSql = ReadMetadataSql(contentRootPath);
                 var frontendConfig = FrontendConfigGestor.ObtenerPorSistema(system.Id);
-                var adminUser = string.IsNullOrWhiteSpace(frontendConfig?.System?.SeedAdminUser) ? "admin" : frontendConfig.System.SeedAdminUser;
-                var adminPassword = string.IsNullOrWhiteSpace(frontendConfig?.System?.SeedAdminPassword) ? "admin" : frontendConfig.System.SeedAdminPassword;
-                var adminEmail = string.IsNullOrWhiteSpace(frontendConfig?.System?.SeedAdminEmail)
-                    ? $"{adminUser}@local"
-                    : frontendConfig.System.SeedAdminEmail;
-                var adminHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
 
                 var dbName = ToSafeSqlName(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
                 var databaseSql = BuildDatabaseScript(
                     system,
                     schemaName,
                     metadataSql,
-                    adminUser,
-                    adminEmail,
-                    adminHash,
                     includeAdminMenus,
                     dbName
                 );
@@ -128,7 +119,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 File.WriteAllText(manifestPath, manifestJson, new UTF8Encoding(false));
 
                 var readmePath = Path.Combine(exportPath, "README.md");
-                File.WriteAllText(readmePath, BuildReadme(system, schemaName, includeAdminMenus, adminUser, adminPassword, dbName), new UTF8Encoding(false));
+                File.WriteAllText(readmePath, BuildReadme(system, schemaName, includeAdminMenus, dbName), new UTF8Encoding(false));
 
                 return new ExportResult
                 {
@@ -250,21 +241,12 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
                 var metadataSql = ReadMetadataSql(contentRootPath);
                 var frontendConfig = FrontendConfigGestor.ObtenerPorSistema(system.Id);
-                var adminUser = string.IsNullOrWhiteSpace(frontendConfig?.System?.SeedAdminUser) ? "admin" : frontendConfig.System.SeedAdminUser;
-                var adminPassword = string.IsNullOrWhiteSpace(frontendConfig?.System?.SeedAdminPassword) ? "admin" : frontendConfig.System.SeedAdminPassword;
-                var adminEmail = string.IsNullOrWhiteSpace(frontendConfig?.System?.SeedAdminEmail)
-                    ? $"{adminUser}@local"
-                    : frontendConfig.System.SeedAdminEmail;
-                var adminHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
 
                 var dbName = ToSafeSqlName(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
                 var databaseSql = BuildDatabaseScript(
                     system,
                     schemaName,
                     metadataSql,
-                    adminUser,
-                    adminEmail,
-                    adminHash,
                     includeAdminMenus,
                     dbName
                 );
@@ -283,7 +265,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 File.WriteAllText(manifestPath, manifestJson, new UTF8Encoding(false));
 
                 var readmePath = Path.Combine(exportPath, "README.md");
-                File.WriteAllText(readmePath, BuildReadme(system, schemaName, includeAdminMenus, adminUser, adminPassword, dbName), new UTF8Encoding(false));
+                File.WriteAllText(readmePath, BuildReadme(system, schemaName, includeAdminMenus, dbName), new UTF8Encoding(false));
 
                 var repoRoot = Directory.GetParent(contentRootPath)?.FullName;
                 if (string.IsNullOrWhiteSpace(repoRoot))
@@ -380,9 +362,6 @@ namespace Backend.Modulos.Sistemas.Exportacion
             Systems system,
             string schemaName,
             string? metadataSql,
-            string adminUser,
-            string adminEmail,
-            string adminHash,
             bool includeAdminMenus,
             string databaseName)
         {
@@ -411,7 +390,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
             sb.AppendLine();
             sb.AppendLine("-- Seed base data (admin + menus)");
-            sb.AppendLine(BuildBaseSeedScript(adminUser, adminEmail, adminHash, includeAdminMenus));
+            sb.AppendLine(BuildBaseSeedScript(includeAdminMenus));
             sb.AppendLine();
             sb.AppendLine("-- Seed system metadata");
             sb.AppendLine(BuildSystemMetadataInserts(system));
@@ -487,7 +466,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             return sb.ToString();
         }
 
-        private static string BuildBaseSeedScript(string adminUser, string adminEmail, string adminHash, bool includeAdminMenus)
+        private static string BuildBaseSeedScript(bool includeAdminMenus)
         {
             var sb = new StringBuilder();
 
@@ -498,16 +477,8 @@ namespace Backend.Modulos.Sistemas.Exportacion
             sb.AppendLine("END");
             sb.AppendLine();
 
-            sb.AppendLine($"IF NOT EXISTS (SELECT 1 FROM dbo.Usuarios WHERE Username = '{EscapeSql(adminUser)}')");
-            sb.AppendLine("BEGIN");
-            sb.AppendLine("    INSERT INTO dbo.Usuarios (Username, Email, PasswordHash, Nombre, Apellido, Activo, FechaCreacion, RolId)");
-            sb.AppendLine($"    SELECT '{EscapeSql(adminUser)}', '{EscapeSql(adminEmail)}',");
-            sb.AppendLine($"           '{EscapeSql(adminHash)}',");
-            sb.AppendLine("           'Admin', 'System', 1, GETDATE(), r.Id");
-            sb.AppendLine("    FROM dbo.Roles r");
-            sb.AppendLine("    WHERE r.Nombre = 'Admin';");
-            sb.AppendLine("END");
-            sb.AppendLine();
+            // El usuario admin NO se siembra acá (no viajan contraseñas en el paquete): lo crea el
+            // backend en su primer arranque con ADMIN_PASSWORD del .env (ver DbSeeder).
 
             if (!includeAdminMenus)
                 return sb.ToString();
@@ -935,7 +906,7 @@ END");
             };
         }
 
-        private static string BuildReadme(Systems system, string schemaName, bool includeAdminMenus, string adminUser, string adminPassword, string databaseName)
+        private static string BuildReadme(Systems system, string schemaName, bool includeAdminMenus, string databaseName)
         {
             var version = string.IsNullOrWhiteSpace(system.Version) ? "-" : system.Version.Trim();
             var modo = includeAdminMenus ? "FULL (incluye administracion)" : "RUNTIME-ONLY (solo modulo)";
@@ -953,13 +924,14 @@ Modo: {modo}
 - `frontend/`: UI runtime del sistema exportado.
 - `manifest.json`: definicion del sistema.
 
-## Credenciales de prueba
-- Usuario: `{adminUser}`
-- Password: `{adminPassword}`
+## Usuario administrador
+El paquete no incluye usuarios ni contraseñas. Al iniciar el backend por primera vez se crea
+el usuario `admin` con la contraseña de `ADMIN_PASSWORD` (en `backend/.env`). Si no está
+definida, se genera una aleatoria y se muestra una sola vez en la consola del backend.
 
 ## Uso rapido
 1. Ejecutar `database.sql` (crea la base `{databaseName}` si no existe).
-3. Copiar `backend/.env.example` a `backend/.env` y configurar DB/JWT.
+2. Copiar `backend/.env.example` a `backend/.env` y completar DB, JWT y `ADMIN_PASSWORD`.
    - Recomendado usar una base vacia para evitar duplicados.
 4. Backend:
    - `dotnet restore`

@@ -15,7 +15,7 @@ namespace Backend.Modulos.Menu
                 .Where(m =>
                     m.Activo &&
                     m.Rol.Any(r =>
-                        r.Usuarios.Any(u => u.Id == usuarioId)
+                        r.Activo && r.Usuarios.Any(u => u.Id == usuarioId)
                     )
                 )
                 .OrderBy(m => m.Orden)
@@ -151,7 +151,7 @@ namespace Backend.Modulos.Menu
                 .Where(m =>
                     m.Activo &&
                     m.Rol.Any(r =>
-                        r.Usuarios.Any(u => u.Id == usuarioId)
+                        r.Activo && r.Usuarios.Any(u => u.Id == usuarioId)
                     )
                 )
                 .OrderBy(m => m.Orden)
@@ -221,7 +221,7 @@ namespace Backend.Modulos.Menu
                 .Where(m => m.System.IsActive && m.System.Status == "published")
                 .Where(m =>
                     !m.Role.Any() ||
-                    m.Role.Any(r => r.Usuarios.Any(u => u.Id == usuarioId))
+                    m.Role.Any(r => r.Activo && r.Usuarios.Any(u => u.Id == usuarioId))
                 )
                 .Select(m => new
                 {

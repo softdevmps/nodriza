@@ -18,11 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 // 🔐 Connection String desde .env
 // ===============================
 var connectionString = SystemBaseContext.BuildConnectionString();
+// No se imprime: contiene la contraseña de la base.
 
-
-Console.WriteLine("==== CONNECTION STRING ====");
-Console.WriteLine(connectionString);
-Console.WriteLine("===========================");
+// No anunciar la tecnología del servidor (cabecera "Server: Kestrel").
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 // ===============================
 // 🗄️ DbContext
@@ -67,6 +66,25 @@ builder.Services
                 Encoding.UTF8.GetBytes(
                     Environment.GetEnvironmentVariable("JWT_SECRET")!)
             )
+        };
+
+        // Un token sigue siendo válido hasta que vence: además se exige que el usuario siga activo,
+        // así desactivar a alguien le corta el acceso en el momento.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                if (!int.TryParse(context.Principal?.FindFirst("usuarioId")?.Value, out var usuarioId))
+                {
+                    context.Fail("Token sin usuario.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<SystemBaseContext>();
+                var activo = await db.Usuarios.AsNoTracking().AnyAsync(u => u.Id == usuarioId && u.Activo);
+                if (!activo)
+                    context.Fail("Usuario inactivo.");
+            }
         };
     });
 
@@ -125,6 +143,33 @@ DbSeeder.Seed(app.Services, app.Logger);
 // ===============================
 // 🔧 Middleware
 // ===============================
+
+// Errores no controlados: se registran en el log y el cliente recibe un mensaje genérico,
+// nunca el stack trace ni el mensaje de SQL Server (también en Development).
+app.UseExceptionHandler(errores => errores.Run(async context =>
+{
+    var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+    app.Logger.LogError(feature?.Error, "Error no controlado en {Metodo} {Ruta}", context.Request.Method, context.Request.Path);
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await context.Response.WriteAsJsonAsync(new
+    {
+        message = "Ocurrió un error inesperado. El detalle quedó registrado en el servidor.",
+        traceId = context.TraceIdentifier
+    });
+}));
+
+// Cabeceras de seguridad básicas.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    if (context.Request.Path.StartsWithSegments("/api"))
+        headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'";
+    await next();
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

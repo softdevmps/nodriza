@@ -67,7 +67,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 return false;
 
             return context.Roles
-                .Where(r => r.Id == user.RolId)
+                .Where(r => r.Id == user.RolId && r.Activo)
                 .Any(r => r.Permission.Any(p => p.Id == permissionId));
         }
 
@@ -89,7 +89,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 return new HashSet<int>();
 
             var keys = context.Roles
-                .Where(r => r.Id == user.RolId)
+                .Where(r => r.Id == user.RolId && r.Activo)
                 .SelectMany(r => r.Permission)
                 .Where(p => p.SystemId == systemId)
                 .Select(p => p.Key)

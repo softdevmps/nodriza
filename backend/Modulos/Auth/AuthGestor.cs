@@ -41,14 +41,17 @@ namespace Backend.Modulos.Auth
             };
         }
 
-        public static bool Registrar(RegistrarRequest model)
+        /// <summary>Devuelve null si se registró; si no, el motivo para el usuario.</summary>
+        public static string? Registrar(RegistrarRequest model)
         {
             using var context = new SystemBaseContext();
 
-            // validar duplicados
+            if (PoliticaContrasenas.Validar(model.Password) is { } motivo)
+                return motivo;
+
             if (context.Usuarios.Any(u =>
                 u.Username == model.Username || u.Email == model.Email))
-                return false;
+                return "Usuario o email ya existente";
 
             var hash = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
@@ -66,7 +69,7 @@ namespace Backend.Modulos.Auth
             context.Usuarios.Add(nuevoUsuario);
             context.SaveChanges();
 
-            return true;
+            return null;
         }
     }
 }

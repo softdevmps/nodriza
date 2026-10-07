@@ -31,6 +31,9 @@ cp backend/.env.example backend/.env
 
 Completar `DB_*` y `JWT_*` (`JWT_SECRET` de 32+ caracteres). `DB_SERVER=localhost,1433`, `DB_USER=sa`.
 
+- `ADMIN_PASSWORD`: contraseña del usuario `admin` que se crea en el primer arranque (8+ caracteres con letras y números). Si queda vacía, se genera una aleatoria y se muestra **una sola vez** en la consola del backend.
+- `REGISTRO_PUBLICO`: `false` por defecto (el alta de usuarios la hace un admin). En `true` se habilita "Crear cuenta" en el login; los usuarios registrados quedan sin rol hasta que un admin les asigne uno.
+
 ### 2) Base de datos
 
 ```bash
@@ -50,7 +53,7 @@ cd backend
 dotnet watch run
 ```
 
-`http://localhost:5032` (Swagger en `/swagger`). Al iniciar, `DbSeeder` crea rol Admin, usuario `admin/admin`, módulos y menús base.
+`http://localhost:5032` (Swagger en `/swagger`). Al iniciar, `DbSeeder` crea rol Admin, el usuario `admin` (con `ADMIN_PASSWORD`), módulos y menús base.
 
 ### 4) Frontend
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Backend.Comun.BaseDeDatos.Tablas;
+using Backend.Comun.Seguridad;
 
 namespace Backend.Comun.BaseDeDatos
 {
@@ -99,7 +100,21 @@ namespace Backend.Comun.BaseDeDatos
             if (user != null)
                 return user;
 
-            var hash = BCrypt.Net.BCrypt.HashPassword("admin");
+            // Nunca admin/admin: la contraseña sale de ADMIN_PASSWORD. Si no está definida se genera
+            // una aleatoria y se muestra UNA sola vez en la consola (solo en este primer arranque).
+            var password = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+            var generada = string.IsNullOrWhiteSpace(password);
+            if (generada)
+            {
+                password = GenerarContrasena();
+            }
+            else if (PoliticaContrasenas.Validar(password) is { } motivo)
+            {
+                logger.LogError("DbSeeder: ADMIN_PASSWORD no cumple la política ({Motivo}). No se creó el usuario admin.", motivo);
+                return null;
+            }
+
+            var hash = BCrypt.Net.BCrypt.HashPassword(password);
             user = new Usuarios
             {
                 Username = "admin",
@@ -114,8 +129,32 @@ namespace Backend.Comun.BaseDeDatos
 
             context.Usuarios.Add(user);
             context.SaveChanges();
-            logger.LogInformation("DbSeeder: usuario admin creado (admin/admin)." );
+            if (generada)
+            {
+                Console.WriteLine();
+                Console.WriteLine("==============================================================");
+                Console.WriteLine(" Usuario administrador creado: admin");
+                Console.WriteLine($" Contraseña inicial (se muestra solo esta vez): {password}");
+                Console.WriteLine(" Cambiala desde Usuarios o definí ADMIN_PASSWORD en el .env.");
+                Console.WriteLine("==============================================================");
+                Console.WriteLine();
+            }
+            logger.LogInformation("DbSeeder: usuario admin creado.");
             return user;
+        }
+
+        private static string GenerarContrasena()
+        {
+            const string letras = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string digitos = "23456789";
+            var todos = letras + digitos;
+            var chars = new char[20];
+            for (var i = 0; i < chars.Length; i++)
+                chars[i] = todos[System.Security.Cryptography.RandomNumberGenerator.GetInt32(todos.Length)];
+            // Garantiza letras y números (política de contraseñas)
+            chars[0] = letras[System.Security.Cryptography.RandomNumberGenerator.GetInt32(letras.Length)];
+            chars[1] = digitos[System.Security.Cryptography.RandomNumberGenerator.GetInt32(digitos.Length)];
+            return new string(chars);
         }
 
         private static List<Menus> EnsureBaseMenus(SystemBaseContext context, ILogger logger)

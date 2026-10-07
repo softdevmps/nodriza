@@ -82,7 +82,7 @@
             </v-form>
           </v-card-text>
 
-          <v-card-actions class="justify-center">
+          <v-card-actions v-if="registroPublico" class="justify-center">
             <v-btn variant="text" @click="$router.push('/register')">
               Crear cuenta
             </v-btn>
@@ -94,9 +94,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from './auth.service'
+import { mensajeError } from '../../comun/utils/mensajeError.js'
 import frontendConfig from '../../comun/config/frontend-config.json'
 
 const usuario = ref('')
@@ -107,6 +108,15 @@ const router = useRouter()
 const appTitle = computed(() => frontendConfig?.system?.appTitle || 'SystemBase')
 const uiModeLabel = computed(() => frontendConfig?.system?.uiMode || 'Enterprise')
 const tagline = computed(() => frontendConfig?.system?.tagline || 'Tu plataforma configurable para gestionar datos en tiempo real.')
+
+const registroPublico = ref(false)
+onMounted(async () => {
+  try {
+    registroPublico.value = (await authService.opciones()).data?.registroPublico === true
+  } catch {
+    registroPublico.value = false
+  }
+})
 
 async function login() {
   error.value = ''
@@ -125,8 +135,11 @@ async function login() {
       throw new Error('Token no recibido')
     }
     router.push('/home')
-  } catch {
-    error.value = 'Usuario o contraseña incorrectos'
+  } catch (e) {
+    // 429 = bloqueado por intentos fallidos: el backend explica cuánto esperar
+    error.value = e?.response?.status === 429
+      ? mensajeError(e)
+      : 'Usuario o contraseña incorrectos'
   } finally {
     loading.value = false
   }
