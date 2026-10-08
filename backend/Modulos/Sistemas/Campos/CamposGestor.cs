@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.BaseDeDatos.Tablas;
 using Backend.Modulos.Sistemas.Campos.Modelos;
@@ -5,8 +6,15 @@ using Backend.Modulos.Sistemas.Campos.Modelos;
 
 namespace Backend.Modulos.Sistemas.Campos
 {
-    public static class CamposGestor
+    public class CamposGestor
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public CamposGestor(IDbContextFactory<SystemBaseContext> contextos)
+        {
+            _contextos = contextos;
+        }
+
         private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
         {
             "string",
@@ -17,9 +25,9 @@ namespace Backend.Modulos.Sistemas.Campos
             "guid"
         };
 
-        public static List<CampoResponse> ObtenerPorEntidad(int systemId, int entityId)
+        public List<CampoResponse> ObtenerPorEntidad(int systemId, int entityId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var exists = context.Entities.Any(e => e.Id == entityId && e.SystemId == systemId);
             if (!exists)
@@ -50,9 +58,9 @@ namespace Backend.Modulos.Sistemas.Campos
                 .ToList();
         }
 
-        public static int? Crear(int systemId, int entityId, CampoCreateRequest request)
+        public int? Crear(int systemId, int entityId, CampoCreateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var entity = context.Entities.FirstOrDefault(e => e.Id == entityId && e.SystemId == systemId);
             if (entity == null)
@@ -103,9 +111,9 @@ namespace Backend.Modulos.Sistemas.Campos
             return field.Id;
         }
 
-        public static bool Editar(int systemId, int entityId, int id, CampoUpdateRequest request)
+        public bool Editar(int systemId, int entityId, int id, CampoUpdateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var entity = context.Entities.FirstOrDefault(e => e.Id == entityId && e.SystemId == systemId);
             if (entity == null)

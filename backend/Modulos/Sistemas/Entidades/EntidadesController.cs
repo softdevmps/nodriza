@@ -10,10 +10,17 @@ namespace Backend.Modulos.Sistemas.Entidades
     [Authorize]
     public class EntidadesController : AppController
     {
+        private readonly EntidadesGestor _entidadesGestor;
+
+        public EntidadesController(EntidadesGestor entidadesGestor)
+        {
+            _entidadesGestor = entidadesGestor;
+        }
+
         [HttpGet(Routes.v1.Entidades.Obtener)]
         public IActionResult Obtener(int systemId)
         {
-            var entidades = EntidadesGestor.ObtenerPorSistema(systemId);
+            var entidades = _entidadesGestor.ObtenerPorSistema(systemId);
             return Ok(entidades);
         }
 
@@ -24,21 +31,21 @@ namespace Backend.Modulos.Sistemas.Entidades
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var entidades = EntidadesGestor.ObtenerParaRuntime(systemId, usuario.UsuarioId);
+            var entidades = _entidadesGestor.ObtenerParaRuntime(systemId, usuario.UsuarioId);
             return Ok(entidades);
         }
 
         [HttpGet(Routes.v1.Entidades.ObtenerPorId)]
         public IActionResult ObtenerPorId(int systemId, int id)
         {
-            var entidad = EntidadesGestor.ObtenerPorId(systemId, id);
+            var entidad = _entidadesGestor.ObtenerPorId(systemId, id);
             return entidad == null ? NotFound() : Ok(entidad);
         }
 
         [HttpGet(Routes.v1.Entidades.ObtenerPorNombre)]
         public IActionResult ObtenerPorNombre(int systemId, string name)
         {
-            var entidad = EntidadesGestor.ObtenerPorNombre(systemId, name);
+            var entidad = _entidadesGestor.ObtenerPorNombre(systemId, name);
             return entidad == null ? NotFound() : Ok(entidad);
         }
 
@@ -49,7 +56,7 @@ namespace Backend.Modulos.Sistemas.Entidades
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var id = EntidadesGestor.Crear(systemId, request);
+            var id = _entidadesGestor.Crear(systemId, request);
             if (id == null)
                 return Conflict("Entidad duplicada o sistema inexistente.");
 
@@ -63,7 +70,7 @@ namespace Backend.Modulos.Sistemas.Entidades
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var ok = EntidadesGestor.Editar(systemId, id, request);
+            var ok = _entidadesGestor.Editar(systemId, id, request);
             return ok ? Ok() : NotFound();
         }
 
@@ -71,7 +78,7 @@ namespace Backend.Modulos.Sistemas.Entidades
         [HttpDelete(Routes.v1.Entidades.Eliminar)]
         public IActionResult Eliminar(int systemId, int id, [FromQuery] bool dropTable = false)
         {
-            var result = EntidadesGestor.Eliminar(systemId, id, dropTable);
+            var result = _entidadesGestor.Eliminar(systemId, id, dropTable);
             if (!result.Ok)
             {
                 if (result.NotFound)

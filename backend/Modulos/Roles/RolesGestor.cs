@@ -8,12 +8,19 @@ using Backend.Modulos.Sistemas.Publicacion;
 
 namespace Backend.Modulos.Roles
 {
-    public static class RolesGestor
+    public class RolesGestor
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
 
-        public static List<RolResponse> ObtenerTodos()
+        public RolesGestor(IDbContextFactory<SystemBaseContext> contextos)
         {
-            using var context = new SystemBaseContext();
+            _contextos = contextos;
+        }
+
+
+        public List<RolResponse> ObtenerTodos()
+        {
+            using var context = _contextos.CreateDbContext();
 
             return context.Roles
             .OrderBy(r => r.Id)
@@ -26,9 +33,9 @@ namespace Backend.Modulos.Roles
             .ToList();
         }
 
-        public static RolDetalleResponse? ObtenerPorId(int id)
+        public RolDetalleResponse? ObtenerPorId(int id)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = context.Roles
                 .Include(r => r.Menu)
@@ -62,9 +69,9 @@ namespace Backend.Modulos.Roles
             };
         }
 
-        public static bool Crear(RolCreateRequest request)
+        public bool Crear(RolCreateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = new Tablas.Roles
             {
@@ -78,9 +85,9 @@ namespace Backend.Modulos.Roles
             return true;
         }
 
-        public static bool Editar(int id, RolUpdateRequest request)
+        public bool Editar(int id, RolUpdateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = context.Roles.FirstOrDefault(r => r.Id == id);
             if (rol == null)
@@ -93,9 +100,9 @@ namespace Backend.Modulos.Roles
             return true;
         }
 
-        public static bool CambiarEstado(int id, bool activo)
+        public bool CambiarEstado(int id, bool activo)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = context.Roles.FirstOrDefault(r => r.Id == id);
             if (rol == null)
@@ -107,9 +114,9 @@ namespace Backend.Modulos.Roles
             return true;
         }
 
-        public static bool AsignarMenus(int rolId, List<int> menusIds)
+        public bool AsignarMenus(int rolId, List<int> menusIds)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = context.Roles
                 .Include(r => r.Menu)
@@ -131,9 +138,9 @@ namespace Backend.Modulos.Roles
             return true;
         }
 
-        public static List<RolSystemMenuResponse>? ObtenerSystemMenusPorRol(int rolId)
+        public List<RolSystemMenuResponse>? ObtenerSystemMenusPorRol(int rolId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rolExists = context.Roles.Any(r => r.Id == rolId);
             if (!rolExists)
@@ -160,9 +167,9 @@ namespace Backend.Modulos.Roles
             return systems;
         }
 
-        public static bool AsignarSystemMenus(int rolId, List<int> systemIds)
+        public bool AsignarSystemMenus(int rolId, List<int> systemIds)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = context.Roles
                 .Include(r => r.SystemMenu)
@@ -187,9 +194,9 @@ namespace Backend.Modulos.Roles
             return true;
         }
 
-        public static List<RolPermissionResponse>? ObtenerPermisosPorRol(int rolId, int systemId)
+        public List<RolPermissionResponse>? ObtenerPermisosPorRol(int rolId, int systemId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = context.Roles
                 .Include(r => r.Permission)
@@ -237,9 +244,9 @@ namespace Backend.Modulos.Roles
                 .ToList();
         }
 
-        public static bool AsignarPermisos(int rolId, int systemId, List<int> permissionIds)
+        public bool AsignarPermisos(int rolId, int systemId, List<int> permissionIds)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var rol = context.Roles
                 .Include(r => r.Permission)

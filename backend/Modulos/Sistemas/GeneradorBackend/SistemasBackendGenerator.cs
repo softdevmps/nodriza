@@ -8,8 +8,17 @@ using Backend.Modulos.Sistemas.GeneradorBackend.Modelos;
 
 namespace Backend.Modulos.Sistemas.GeneradorBackend
 {
-    public static class SistemasBackendGenerator
+    public class SistemasBackendGenerator
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+        private readonly BackendConfigGestor _backendConfigGestor;
+
+        public SistemasBackendGenerator(IDbContextFactory<SystemBaseContext> contextos, BackendConfigGestor backendConfigGestor)
+        {
+            _contextos = contextos;
+            _backendConfigGestor = backendConfigGestor;
+        }
+
         private class FieldConfig
         {
             public Fields Field { get; set; } = null!;
@@ -24,9 +33,9 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             public string TargetName { get; set; } = null!;
         }
 
-        public static BackendGenerateResult Generar(int systemId, string outputRoot, bool overwrite)
+        public BackendGenerateResult Generar(int systemId, string outputRoot, bool overwrite)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var system = context.Systems
                 .Include(s => s.Entities)
@@ -51,7 +60,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
                 };
             }
 
-            var backendConfig = BackendConfigGestor.ObtenerPorSistema(systemId);
+            var backendConfig = _backendConfigGestor.ObtenerPorSistema(systemId);
             var systemConfig = backendConfig.System;
             var configByEntityId = backendConfig.Entities.ToDictionary(e => e.EntityId, e => e);
 
@@ -232,7 +241,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             };
         }
 
-        private static string BuildCsproj(string projectName)
+        private string BuildCsproj(string projectName)
         {
             return $@"<Project Sdk=""Microsoft.NET.Sdk.Web"">
 
@@ -258,7 +267,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
 ";
         }
 
-        private static string BuildEnvExample()
+        private string BuildEnvExample()
         {
             return @"DB_SERVER=SERVIDOR_BASE_DE_DATOS,PUERTO
 DB_NAME=NOMBRE_BASE_DE_DATOS
@@ -280,7 +289,7 @@ REGISTRO_PUBLICO=false
 ";
         }
 
-        private static string BuildEnvFile(string slug, string dbUser, string dbPassword, string jwtSecret)
+        private string BuildEnvFile(string slug, string dbUser, string dbPassword, string jwtSecret)
         {
             string Get(string key, string fallback) =>
                 string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key))
@@ -308,7 +317,7 @@ REGISTRO_PUBLICO=false
         /// - Si había un .env (regenerar con overwrite) se conserva tal cual y se re-aseguran los permisos SQL.
         /// - Si no había, se crea con credenciales SQL y secreto JWT propios (nunca los de la fábrica).
         /// </summary>
-        private static void PrepararEnv(SystemBaseContext context, string outputRoot, string slug, string? envExistente)
+        private void PrepararEnv(SystemBaseContext context, string outputRoot, string slug, string? envExistente)
         {
             var envPath = Path.Combine(outputRoot, ".env");
             File.WriteAllText(Path.Combine(outputRoot, ".env.example"), BuildEnvExample(), new UTF8Encoding(false));
@@ -335,7 +344,7 @@ REGISTRO_PUBLICO=false
             File.WriteAllText(envPath, BuildEnvFile(slug, CredencialesSistema.NombreLogin(slug), password, CredencialesSistema.GenerarSecretoJwt()), new UTF8Encoding(false));
         }
 
-        private static string BuildGitignore()
+        private string BuildGitignore()
         {
             return @"# Credenciales: nunca al repositorio
 .env
@@ -350,7 +359,7 @@ obj/
 ";
         }
 
-        private static string BuildProgram()
+        private string BuildProgram()
         {
             return @"using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -472,7 +481,7 @@ app.Run();
 ";
         }
 
-        private static string BuildLaunchSettings(string projectName, int httpPort)
+        private string BuildLaunchSettings(string projectName, int httpPort)
         {
             return $@"{{
   ""profiles"": {{
@@ -491,12 +500,12 @@ app.Run();
 ";
         }
 
-        private static int GetBackendPort(int systemId)
+        private int GetBackendPort(int systemId)
         {
             return PuertosSistemas.Backend(systemId);
         }
 
-        private static void WritePortsRegistry(string outputRoot, SystemBaseContext context)
+        private void WritePortsRegistry(string outputRoot, SystemBaseContext context)
         {
             try
             {
@@ -537,7 +546,7 @@ app.Run();
             }
         }
 
-        private static string BuildRoutes(string apiBase, IEnumerable<Entities> entities, Dictionary<int, BackendEntityConfig> configByEntityId)
+        private string BuildRoutes(string apiBase, IEnumerable<Entities> entities, Dictionary<int, BackendEntityConfig> configByEntityId)
         {
             var basePath = NormalizeApiBase(apiBase);
             var sb = new StringBuilder();
@@ -584,7 +593,7 @@ app.Run();
             return sb.ToString();
         }
 
-        private static string BuildDevToolsController()
+        private string BuildDevToolsController()
         {
             return @"using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -650,7 +659,7 @@ namespace Backend.Controllers
 ";
         }
 
-        private static string BuildDbClass()
+        private string BuildDbClass()
         {
             return @"using Microsoft.Data.SqlClient;
 using Backend.Utils;
@@ -673,7 +682,7 @@ namespace Backend.Data
 ";
         }
 
-        private static string BuildAppConfig()
+        private string BuildAppConfig()
         {
             return @"namespace Backend.Utils
 {
@@ -713,7 +722,7 @@ namespace Backend.Data
 ";
         }
 
-        private static string BuildJwtService()
+        private string BuildJwtService()
         {
             return @"using Backend.Utils;
 using Microsoft.IdentityModel.Tokens;
@@ -755,7 +764,7 @@ namespace Backend.Models.Jwt
 ";
         }
 
-        private static string BuildAuthGestor()
+        private string BuildAuthGestor()
         {
             return @"using Backend.Data;
 using Backend.Models.Auth;
@@ -834,7 +843,7 @@ namespace Backend.Negocio.Gestores
 ";
         }
 
-        private static string BuildLoginRequest()
+        private string BuildLoginRequest()
         {
             return @"namespace Backend.Models.Auth
 {
@@ -847,7 +856,7 @@ namespace Backend.Negocio.Gestores
 ";
         }
 
-        private static string BuildLoginResponse()
+        private string BuildLoginResponse()
         {
             return @"namespace Backend.Models.Auth
 {
@@ -862,7 +871,7 @@ namespace Backend.Negocio.Gestores
 ";
         }
 
-        private static string BuildRegistrarRequest()
+        private string BuildRegistrarRequest()
         {
             return @"using System.ComponentModel.DataAnnotations;
 
@@ -889,7 +898,7 @@ namespace Backend.Models.Auth
 ";
         }
 
-        private static string BuildUsuarioToken()
+        private string BuildUsuarioToken()
         {
             return @"namespace Backend.Models.Auth
 {
@@ -902,7 +911,7 @@ namespace Backend.Models.Auth
 ";
         }
 
-        private static string BuildAppController()
+        private string BuildAppController()
         {
             return @"using Backend.Models.Auth;
 using Microsoft.AspNetCore.Mvc;
@@ -928,7 +937,7 @@ namespace Backend.Controllers
 ";
         }
 
-        private static string BuildAuthController()
+        private string BuildAuthController()
         {
             return @"using Backend.Models.Auth;
 using Backend.Negocio.Gestores;
@@ -973,7 +982,7 @@ namespace Backend.Controllers
 ";
         }
 
-        private static string BuildEntityModel(string entityName, List<Fields> fields)
+        private string BuildEntityModel(string entityName, List<Fields> fields)
         {
             var sb = new StringBuilder();
             sb.AppendLine("namespace Backend.Models.Entidades");
@@ -998,7 +1007,7 @@ namespace Backend.Controllers
             return sb.ToString();
         }
 
-        private static string BuildEntityResponse(string entityName, List<FieldConfig> fields)
+        private string BuildEntityResponse(string entityName, List<FieldConfig> fields)
         {
             var sb = new StringBuilder();
             sb.AppendLine("namespace Backend.Models." + entityName);
@@ -1023,7 +1032,7 @@ namespace Backend.Controllers
             return sb.ToString();
         }
 
-        private static string BuildEntityCreateRequest(string entityName, List<FieldConfig> fields)
+        private string BuildEntityCreateRequest(string entityName, List<FieldConfig> fields)
         {
             var sb = new StringBuilder();
             sb.AppendLine("namespace Backend.Models." + entityName);
@@ -1053,7 +1062,7 @@ namespace Backend.Controllers
             return sb.ToString();
         }
 
-        private static string BuildEntityUpdateRequest(string entityName, List<FieldConfig> fields)
+        private string BuildEntityUpdateRequest(string entityName, List<FieldConfig> fields)
         {
             var sb = new StringBuilder();
             sb.AppendLine("namespace Backend.Models." + entityName);
@@ -1083,7 +1092,7 @@ namespace Backend.Controllers
             return sb.ToString();
         }
 
-        private static string BuildEntityGestor(string schema, Entities entity, List<FieldConfig> fieldConfigs, BackendEntityConfig config, BackendSystemConfig systemConfig, List<RelationCheck> relationChecks)
+        private string BuildEntityGestor(string schema, Entities entity, List<FieldConfig> fieldConfigs, BackendEntityConfig config, BackendSystemConfig systemConfig, List<RelationCheck> relationChecks)
         {
             var entityName = Texto.ToPascalCase(entity.Name);
             var tableName = entity.TableName;
@@ -1409,7 +1418,7 @@ namespace Backend.Negocio.Gestores
 ";
         }
 
-        private static string BuildEntityController(Entities entity, BackendEntityConfig config, BackendSystemConfig systemConfig)
+        private string BuildEntityController(Entities entity, BackendEntityConfig config, BackendSystemConfig systemConfig)
         {
             var entityName = Texto.ToPascalCase(entity.Name);
             var pkField = entity.Fields.FirstOrDefault(f => f.IsPrimaryKey) ?? entity.Fields.First();
@@ -1513,17 +1522,17 @@ namespace Backend.Controllers
 ";
         }
 
-        private static bool ResolveEndpointAuth(BackendEntityConfig config, BackendSystemConfig systemConfig, bool? endpointOverride)
+        private bool ResolveEndpointAuth(BackendEntityConfig config, BackendSystemConfig systemConfig, bool? endpointOverride)
         {
             return endpointOverride ?? config.RequireAuth ?? systemConfig.RequireAuth;
         }
 
-        private static string BuildAuthorizeAttribute(bool requireAuth)
+        private string BuildAuthorizeAttribute(bool requireAuth)
         {
             return requireAuth ? "        [Authorize]\n" : string.Empty;
         }
 
-        private static List<RelationCheck> BuildRelationsForEntity(Entities sourceEntity, IEnumerable<Relations> relations, IEnumerable<Entities> allEntities)
+        private List<RelationCheck> BuildRelationsForEntity(Entities sourceEntity, IEnumerable<Relations> relations, IEnumerable<Entities> allEntities)
         {
             var relationsList = relations.ToList();
             var entitiesList = allEntities.ToList();
@@ -1567,7 +1576,7 @@ namespace Backend.Controllers
             return list;
         }
 
-        private static string MapToCSharpType(Fields field)
+        private string MapToCSharpType(Fields field)
         {
             var type = field.DataType?.ToLowerInvariant();
             return type switch
@@ -1582,7 +1591,7 @@ namespace Backend.Controllers
             };
         }
 
-        private static bool IsNullable(Fields field)
+        private bool IsNullable(Fields field)
         {
             if (field.IsPrimaryKey || field.IsIdentity)
                 return false;
@@ -1590,7 +1599,7 @@ namespace Backend.Controllers
             return !field.Required;
         }
 
-        private static string BuildParameterLine(FieldConfig field, string propertyName, bool useDefault)
+        private string BuildParameterLine(FieldConfig field, string propertyName, bool useDefault)
         {
             var type = MapToCSharpType(field.Field);
             var nullable = IsNullable(field.Field);
@@ -1610,7 +1619,7 @@ namespace Backend.Controllers
             return $"            cmd.Parameters.AddWithValue(\"@{column}\", request.{propertyName});";
         }
 
-        private static string? BuildDefaultLiteral(FieldConfig field, string type)
+        private string? BuildDefaultLiteral(FieldConfig field, string type)
         {
             if (string.IsNullOrWhiteSpace(field.Config.DefaultValue))
                 return null;
@@ -1632,7 +1641,7 @@ namespace Backend.Controllers
         }
 
         /// <summary>Escapa un texto para usarlo dentro de un literal string C# normal ("...").</summary>
-        private static string EscapeString(string value)
+        private string EscapeString(string value)
         {
             var sb = new StringBuilder(value.Length);
             foreach (var ch in value)
@@ -1655,7 +1664,7 @@ namespace Backend.Controllers
             return sb.ToString();
         }
 
-        private static List<string> ValidarNombresGenerables(
+        private List<string> ValidarNombresGenerables(
             IEnumerable<Entities> entities,
             IEnumerable<Relations> relations,
             Dictionary<int, BackendEntityConfig> configByEntityId,
@@ -1694,7 +1703,7 @@ namespace Backend.Controllers
             return errores;
         }
 
-        private static List<FieldConfig> BuildFieldConfigs(List<Fields> fields, BackendEntityConfig config)
+        private List<FieldConfig> BuildFieldConfigs(List<Fields> fields, BackendEntityConfig config)
         {
             var configs = config.Fields.ToDictionary(f => f.FieldId, f => f);
             var list = new List<FieldConfig>();
@@ -1730,7 +1739,7 @@ namespace Backend.Controllers
             return list;
         }
 
-        private static BackendEntityConfig BuildFallbackEntityConfig(Entities entity, List<Fields> fields)
+        private BackendEntityConfig BuildFallbackEntityConfig(Entities entity, List<Fields> fields)
         {
             var config = new BackendEntityConfig
             {
@@ -1770,7 +1779,7 @@ namespace Backend.Controllers
             return config;
         }
 
-        private static string NormalizeApiBase(string value)
+        private string NormalizeApiBase(string value)
         {
             var trimmed = value?.Trim() ?? "api/v1";
             trimmed = trimmed.Trim('/');

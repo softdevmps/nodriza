@@ -7,11 +7,18 @@ using Backend.Modulos.Sistemas.Relaciones.Modelos;
 
 namespace Backend.Modulos.Sistemas.Relaciones
 {
-    public static class RelacionesGestor
+    public class RelacionesGestor
     {
-        public static List<RelacionResponse> ObtenerPorSistema(int systemId)
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public RelacionesGestor(IDbContextFactory<SystemBaseContext> contextos)
         {
-            using var context = new SystemBaseContext();
+            _contextos = contextos;
+        }
+
+        public List<RelacionResponse> ObtenerPorSistema(int systemId)
+        {
+            using var context = _contextos.CreateDbContext();
 
             return context.Relations
                 .Where(r => r.SystemId == systemId)
@@ -30,9 +37,9 @@ namespace Backend.Modulos.Sistemas.Relaciones
                 .ToList();
         }
 
-        public static (int? Id, string? Error) Crear(int systemId, RelacionCreateRequest request)
+        public (int? Id, string? Error) Crear(int systemId, RelacionCreateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             if (!context.Systems.Any(s => s.Id == systemId))
                 return (null, "Sistema no encontrado.");
@@ -64,9 +71,9 @@ namespace Backend.Modulos.Sistemas.Relaciones
             return (relation.Id, null);
         }
 
-        public static (bool Ok, bool NotFound, string? Error) Editar(int systemId, int id, RelacionUpdateRequest request)
+        public (bool Ok, bool NotFound, string? Error) Editar(int systemId, int id, RelacionUpdateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var relation = context.Relations.FirstOrDefault(r => r.Id == id && r.SystemId == systemId);
             if (relation == null)
@@ -91,7 +98,7 @@ namespace Backend.Modulos.Sistemas.Relaciones
         /// Solo tipos que se publican de verdad (ManyToOne, OneToOne); la FK tiene que ser un campo
         /// de la entidad origen del mismo tipo que la clave primaria de la entidad destino.
         /// </summary>
-        private static string? Validar(string tipo, string foreignKey, Entities source, Entities target)
+        private string? Validar(string tipo, string foreignKey, Entities source, Entities target)
         {
             if (!SistemasPublicador.RelacionesSoportadas.Contains(tipo))
                 return $"Tipo de relación no soportado: {tipo}. Por ahora solo ManyToOne y OneToOne.";
@@ -110,7 +117,7 @@ namespace Backend.Modulos.Sistemas.Relaciones
             return null;
         }
 
-        private static string NormalizarTipo(string tipo) =>
+        private string NormalizarTipo(string tipo) =>
             SistemasPublicador.RelacionesSoportadas.First(t => string.Equals(t, tipo, StringComparison.OrdinalIgnoreCase));
 }
 }

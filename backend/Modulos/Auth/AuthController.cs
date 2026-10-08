@@ -8,6 +8,13 @@ namespace Backend.Modulos.Auth
     [ApiController]
     public class AuthController : AppController
     {
+        private readonly AuthGestor _authGestor;
+
+        public AuthController(AuthGestor authGestor)
+        {
+            _authGestor = authGestor;
+        }
+
         /// <summary>Opciones públicas para la pantalla de login (ej.: si se muestra "Registrarse").</summary>
         [HttpGet(Routes.v1.Auth.Opciones)]
         public IActionResult Opciones() => Ok(new { registroPublico = AppConfig.REGISTRO_PUBLICO });
@@ -21,7 +28,7 @@ namespace Backend.Modulos.Auth
             if (!ModelState.IsValid)
                 return BadRequest("Datos inválidos");
 
-            var error = AuthGestor.Registrar(model);
+            var error = _authGestor.Registrar(model);
             if (error != null)
                 return BadRequest(error);
 
@@ -37,7 +44,7 @@ namespace Backend.Modulos.Auth
             if (BloqueoLogin.MinutosBloqueado(model.Usuario) is { } minutos)
                 return StatusCode(StatusCodes.Status429TooManyRequests, $"Demasiados intentos fallidos. Probá de nuevo en {minutos} minuto(s).");
 
-            var result = AuthGestor.Login(model);
+            var result = _authGestor.Login(model);
 
             if (result == null)
             {

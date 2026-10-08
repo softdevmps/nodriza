@@ -11,17 +11,24 @@ namespace Backend.Modulos.Roles
     [Authorize(Policy = Politicas.Admin)]
     public class RolesController : AppController
     {
+        private readonly RolesGestor _rolesGestor;
+
+        public RolesController(RolesGestor rolesGestor)
+        {
+            _rolesGestor = rolesGestor;
+        }
+
         [HttpGet(Routes.v1.Roles.Obtener)]
         public IActionResult ObtenerRoles()
         {
-            var roles = RolesGestor.ObtenerTodos();
+            var roles = _rolesGestor.ObtenerTodos();
             return Ok(roles);
         }
 
         [HttpGet(Routes.v1.Roles.ObtenerPorId)]
         public IActionResult ObtenerPorId(int id)
         {
-            var rol = RolesGestor.ObtenerPorId(id);
+            var rol = _rolesGestor.ObtenerPorId(id);
 
             if (rol == null)
                 return NotFound();
@@ -33,14 +40,14 @@ namespace Backend.Modulos.Roles
         [HttpPost(Routes.v1.Roles.Crear)]
         public IActionResult Crear([FromBody] RolCreateRequest request)
         {
-            RolesGestor.Crear(request);
+            _rolesGestor.Crear(request);
             return Ok();
         }
 
         [HttpPut(Routes.v1.Roles.Editar)]
         public IActionResult Editar(int id, [FromBody] RolUpdateRequest request)
         {
-            var ok = RolesGestor.Editar(id, request);
+            var ok = _rolesGestor.Editar(id, request);
             if (!ok)
                 return NotFound();
 
@@ -50,7 +57,7 @@ namespace Backend.Modulos.Roles
         [HttpPut(Routes.v1.Roles.Estado)]
         public IActionResult CambiarEstado(int id, [FromQuery] bool activo)
         {
-            var ok = RolesGestor.CambiarEstado(id, activo);
+            var ok = _rolesGestor.CambiarEstado(id, activo);
             if (!ok)
                 return NotFound();
 
@@ -60,7 +67,7 @@ namespace Backend.Modulos.Roles
         [HttpPut(Routes.v1.Roles.AsignarMenus)]
         public IActionResult AsignarMenus(int id, [FromBody] RolMenusRequest request)
         {
-            var ok = RolesGestor.AsignarMenus(id, request.MenusIds);
+            var ok = _rolesGestor.AsignarMenus(id, request.MenusIds);
             if (!ok)
                 return NotFound();
 
@@ -70,7 +77,7 @@ namespace Backend.Modulos.Roles
         [HttpGet(Routes.v1.Roles.ObtenerSystemMenus)]
         public IActionResult ObtenerSystemMenus(int id)
         {
-            var menus = RolesGestor.ObtenerSystemMenusPorRol(id);
+            var menus = _rolesGestor.ObtenerSystemMenusPorRol(id);
             if (menus == null)
                 return NotFound();
 
@@ -80,7 +87,7 @@ namespace Backend.Modulos.Roles
         [HttpPut(Routes.v1.Roles.AsignarSystemMenus)]
         public IActionResult AsignarSystemMenus(int id, [FromBody] RolSystemMenusRequest request)
         {
-            var ok = RolesGestor.AsignarSystemMenus(id, request.SystemIds);
+            var ok = _rolesGestor.AsignarSystemMenus(id, request.SystemIds);
             if (!ok)
                 return NotFound();
 
@@ -90,7 +97,7 @@ namespace Backend.Modulos.Roles
         [HttpGet(Routes.v1.Roles.ObtenerPermisos)]
         public IActionResult ObtenerPermisos(int id, int systemId)
         {
-            var permisos = RolesGestor.ObtenerPermisosPorRol(id, systemId);
+            var permisos = _rolesGestor.ObtenerPermisosPorRol(id, systemId);
             if (permisos == null)
                 return NotFound();
 
@@ -100,7 +107,7 @@ namespace Backend.Modulos.Roles
         [HttpPut(Routes.v1.Roles.AsignarPermisos)]
         public IActionResult AsignarPermisos(int id, int systemId, [FromBody] RolPermissionsRequest request)
         {
-            var ok = RolesGestor.AsignarPermisos(id, systemId, request.PermissionIds);
+            var ok = _rolesGestor.AsignarPermisos(id, systemId, request.PermissionIds);
             if (!ok)
                 return NotFound();
 

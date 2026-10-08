@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using Backend.Comun;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.Seguridad;
 // ===============================
@@ -26,8 +27,13 @@ builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 // ===============================
 // 🗄️ DbContext
 // ===============================
-builder.Services.AddDbContext<SystemBaseContext>(options =>
+// Fábrica de contextos: los gestores abren uno por operación. También registra SystemBaseContext
+// por request (lo usan la política Admin, la validación del token y el seed).
+builder.Services.AddDbContextFactory<SystemBaseContext>(options =>
     options.UseSqlServer(connectionString));
+
+// Gestores de cada módulo (ver Comun/Inyeccion.cs)
+builder.Services.AddGestores();
 
 // ===============================
 // 🌍 CORS (FRONTEND VUE)

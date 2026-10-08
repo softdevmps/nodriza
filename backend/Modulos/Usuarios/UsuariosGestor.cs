@@ -8,11 +8,18 @@ using Backend.Modulos.Usuarios.Modelos;
 
 namespace Backend.Modulos.Usuarios
 {
-    public static class UsuariosGestor
+    public class UsuariosGestor
     {
-        public static List<UsuarioResponse> ObtenerTodos()
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public UsuariosGestor(IDbContextFactory<SystemBaseContext> contextos)
         {
-            using var context = new SystemBaseContext();
+            _contextos = contextos;
+        }
+
+        public List<UsuarioResponse> ObtenerTodos()
+        {
+            using var context = _contextos.CreateDbContext();
 
             return context.Usuarios
                 .Include(u => u.Rol)
@@ -31,9 +38,9 @@ namespace Backend.Modulos.Usuarios
                 .ToList();
         }
 
-        public static UsuarioDetalleResponse? ObtenerPorId(int id)
+        public UsuarioDetalleResponse? ObtenerPorId(int id)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var usuario = context.Usuarios
             .Include(u => u.Rol)
@@ -55,9 +62,9 @@ namespace Backend.Modulos.Usuarios
             };
         }
 
-        public static (bool Ok, string? Error) Crear(UsuarioCreateRequest request)
+        public (bool Ok, string? Error) Crear(UsuarioCreateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var error = PoliticaContrasenas.Validar(request.Password) ?? Validar(context, null, request.Username, request.Email, request.RolId);
             if (error != null)
@@ -81,9 +88,9 @@ namespace Backend.Modulos.Usuarios
             return (true, null);
         }
 
-        public static (bool Ok, bool NotFound, string? Error) Editar(int id, UsuarioUpdateRequest request)
+        public (bool Ok, bool NotFound, string? Error) Editar(int id, UsuarioUpdateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var usuario = context.Usuarios.FirstOrDefault(u => u.Id == id);
             if (usuario == null)
@@ -111,7 +118,7 @@ namespace Backend.Modulos.Usuarios
         }
 
         /// <summary>Username y email únicos (ignorando al propio usuario) y rol existente.</summary>
-        private static string? Validar(SystemBaseContext context, int? idPropio, string username, string email, int rolId)
+        private string? Validar(SystemBaseContext context, int? idPropio, string username, string email, int rolId)
         {
             username = username.Trim();
             email = email.Trim();
@@ -124,9 +131,9 @@ namespace Backend.Modulos.Usuarios
             return null;
         }
 
-        public static bool CambiarEstado(int id, bool activo)
+        public bool CambiarEstado(int id, bool activo)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var usuario = context.Usuarios.FirstOrDefault(u => u.Id == id);
             if (usuario == null)

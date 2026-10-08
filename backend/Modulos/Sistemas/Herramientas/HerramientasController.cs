@@ -13,10 +13,14 @@ namespace Backend.Modulos.Sistemas.Herramientas
     [Authorize]
     public class HerramientasController : AppController
     {
+        private readonly ProcesosSistemas _procesosSistemas;
+        private readonly SistemasGestor _sistemasGestor;
         private readonly IWebHostEnvironment _env;
 
-        public HerramientasController(IWebHostEnvironment env)
+        public HerramientasController(IWebHostEnvironment env, ProcesosSistemas procesosSistemas, SistemasGestor sistemasGestor)
         {
+            _procesosSistemas = procesosSistemas;
+            _sistemasGestor = sistemasGestor;
             _env = env;
         }
 
@@ -58,13 +62,13 @@ namespace Backend.Modulos.Sistemas.Herramientas
             if (!_env.IsDevelopment())
                 return Forbid();
 
-            var sistema = SistemasGestor.ObtenerPorId(id);
+            var sistema = _sistemasGestor.ObtenerPorId(id);
             if (sistema == null)
                 return NotFound();
 
             var repoRoot = Directory.GetParent(_env.ContentRootPath)?.FullName ?? _env.ContentRootPath;
             var carpeta = Path.Combine(repoRoot, "systems", sistema.Slug, componente == Componente.Backend ? "backend" : "frontend");
-            var r = await ProcesosSistemas.IniciarAsync(componente, id, carpeta);
+            var r = await _procesosSistemas.IniciarAsync(componente, id, carpeta);
             if (!r.Ok)
                 return BadRequest(new { message = r.Message });
 
@@ -78,7 +82,7 @@ namespace Backend.Modulos.Sistemas.Herramientas
             if (!_env.IsDevelopment())
                 return Forbid();
 
-            var r = ProcesosSistemas.Detener(componente, id);
+            var r = _procesosSistemas.Detener(componente, id);
             return Ok(new { status = r.Status, message = r.Message });
         }
 
@@ -87,7 +91,7 @@ namespace Backend.Modulos.Sistemas.Herramientas
             if (!_env.IsDevelopment())
                 return Forbid();
 
-            return Ok(new { online = await ProcesosSistemas.EstaOnlineAsync(componente, id) });
+            return Ok(new { online = await _procesosSistemas.EstaOnlineAsync(componente, id) });
         }
 
         private IActionResult Logs(Componente componente, int id, long after, int take)

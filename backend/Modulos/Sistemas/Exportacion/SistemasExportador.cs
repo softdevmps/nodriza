@@ -11,17 +11,26 @@ using Backend.Modulos.Sistemas.GeneradorFrontend;
 
 namespace Backend.Modulos.Sistemas.Exportacion
 {
-    public static class SistemasExportador
+    public class SistemasExportador
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+        private readonly FrontendConfigGestor _frontendConfigGestor;
+
+        public SistemasExportador(IDbContextFactory<SystemBaseContext> contextos, FrontendConfigGestor frontendConfigGestor)
+        {
+            _contextos = contextos;
+            _frontendConfigGestor = frontendConfigGestor;
+        }
+
         private static readonly string[] Actions = { "view", "create", "edit", "delete" };
 
-        public static ExportResult ActualizarMetadata(
+        public ExportResult ActualizarMetadata(
             int systemId,
             string exportPath,
             string contentRootPath,
             bool includeAdminMenus)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var system = context.Systems
                 .Include(s => s.Entities)
@@ -95,7 +104,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 Directory.CreateDirectory(exportPath);
 
                 var metadataSql = ReadMetadataSql(contentRootPath);
-                var frontendConfig = FrontendConfigGestor.ObtenerPorSistema(system.Id);
+                var frontendConfig = _frontendConfigGestor.ObtenerPorSistema(system.Id);
 
                 var dbName = NombresSql.Normalizar(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
                 var databaseSql = BuildDatabaseScript(
@@ -141,7 +150,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             }
         }
 
-        public static ExportResult Exportar(
+        public ExportResult Exportar(
             int systemId,
             string exportRoot,
             string contentRootPath,
@@ -149,7 +158,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             bool workspaceMode,
             bool overwrite)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var system = context.Systems
                 .Include(s => s.Entities)
@@ -242,7 +251,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                 Directory.CreateDirectory(exportPath);
 
                 var metadataSql = ReadMetadataSql(contentRootPath);
-                var frontendConfig = FrontendConfigGestor.ObtenerPorSistema(system.Id);
+                var frontendConfig = _frontendConfigGestor.ObtenerPorSistema(system.Id);
 
                 var dbName = NombresSql.Normalizar(Environment.GetEnvironmentVariable("DB_NAME")) ?? "systemBase";
                 var databaseSql = BuildDatabaseScript(
@@ -360,7 +369,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             }
         }
 
-        private static string BuildDatabaseScript(
+        private string BuildDatabaseScript(
             Systems system,
             string schemaName,
             string? metadataSql,
@@ -403,7 +412,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             return sb.ToString();
         }
 
-        private static string BuildBaseTablesScript()
+        private string BuildBaseTablesScript()
         {
             var sb = new StringBuilder();
 
@@ -468,7 +477,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             return sb.ToString();
         }
 
-        private static string BuildBaseSeedScript(bool includeAdminMenus)
+        private string BuildBaseSeedScript(bool includeAdminMenus)
         {
             var sb = new StringBuilder();
 
@@ -546,7 +555,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             return sb.ToString();
         }
 
-        private static string BuildSystemMetadataInserts(Systems system)
+        private string BuildSystemMetadataInserts(Systems system)
         {
             var sb = new StringBuilder();
             var slug = EscapeSql(system.Slug);
@@ -723,7 +732,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             return sb.ToString();
         }
 
-        private static string BuildRuntimeSchemaScript(string schemaName, IEnumerable<Entities> entities, IEnumerable<Relations> relations)
+        private string BuildRuntimeSchemaScript(string schemaName, IEnumerable<Entities> entities, IEnumerable<Relations> relations)
         {
             var sb = new StringBuilder();
 
@@ -797,7 +806,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
             return sb.ToString();
         }
 
-        private static string BuildRelationsScript(string schemaName, IEnumerable<Entities> entities, IEnumerable<Relations> relations)
+        private string BuildRelationsScript(string schemaName, IEnumerable<Entities> entities, IEnumerable<Relations> relations)
         {
             if (relations == null)
                 return string.Empty;
@@ -842,7 +851,7 @@ END");
             return sb.ToString();
         }
 
-        private static ExportManifest BuildManifest(Systems system, string schemaName)
+        private ExportManifest BuildManifest(Systems system, string schemaName)
         {
             var entities = system.Entities
                 .OrderBy(e => e.SortOrder)
@@ -908,7 +917,7 @@ END");
             };
         }
 
-        private static string BuildReadme(Systems system, string schemaName, bool includeAdminMenus, string databaseName)
+        private string BuildReadme(Systems system, string schemaName, bool includeAdminMenus, string databaseName)
         {
             var version = string.IsNullOrWhiteSpace(system.Version) ? "-" : system.Version.Trim();
             var modo = includeAdminMenus ? "FULL (incluye administracion)" : "RUNTIME-ONLY (solo modulo)";
@@ -944,7 +953,7 @@ definida, se genera una aleatoria y se muestra una sola vez en la consola del ba
 ";
         }
 
-        private static string BuildExportFolderName(Systems system)
+        private string BuildExportFolderName(Systems system)
         {
             var slug = ToSafeFolderSegment(system.Slug) ?? "system";
             var version = ToSafeFolderSegment(system.Version ?? "0.0") ?? "0.0";
@@ -1007,7 +1016,7 @@ definida, se genera una aleatoria y se muestra una sola vez en la consola del ba
             }
         }
 
-        private static void CopyDirectory(
+        private void CopyDirectory(
             string sourceDir,
             string targetDir,
             HashSet<string> excludedDirectories,
@@ -1039,7 +1048,7 @@ definida, se genera una aleatoria y se muestra una sola vez en la consola del ba
             }
         }
 
-        private static string? ReadMetadataSql(string contentRootPath)
+        private string? ReadMetadataSql(string contentRootPath)
         {
             try
             {
@@ -1052,7 +1061,7 @@ definida, se genera una aleatoria y se muestra una sola vez en la consola del ba
             }
         }
 
-        private static string ActionLabel(string action)
+        private string ActionLabel(string action)
         {
             return action switch
             {
@@ -1064,7 +1073,7 @@ definida, se genera una aleatoria y se muestra una sola vez en la consola del ba
             };
         }
 
-        private static string? ToSafeFolderSegment(string? value)
+        private string? ToSafeFolderSegment(string? value)
         {
             if (string.IsNullOrWhiteSpace(value))
                 return null;
@@ -1084,22 +1093,22 @@ definida, se genera una aleatoria y se muestra una sola vez en la consola del ba
             return string.IsNullOrWhiteSpace(result) ? null : result;
         }
 
-        private static string SqlValue(string? value)
+        private string SqlValue(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? "NULL" : $"N'{EscapeSql(value)}'";
         }
 
-        private static string SqlNumber(int? value)
+        private string SqlNumber(int? value)
         {
             return value.HasValue ? value.Value.ToString() : "NULL";
         }
 
-        private static string SqlDate(DateTime? value)
+        private string SqlDate(DateTime? value)
         {
             return value.HasValue ? $"'{value.Value:yyyy-MM-dd HH:mm:ss}'" : "NULL";
         }
 
-        private static string EscapeSql(string? value)
+        private string EscapeSql(string? value)
         {
             return (value ?? string.Empty).Replace("'", "''");
         }

@@ -10,10 +10,17 @@ namespace Backend.Modulos.Sistemas.Relaciones
     [Authorize]
     public class RelacionesController : AppController
     {
+        private readonly RelacionesGestor _relacionesGestor;
+
+        public RelacionesController(RelacionesGestor relacionesGestor)
+        {
+            _relacionesGestor = relacionesGestor;
+        }
+
         [HttpGet(Routes.v1.Relaciones.Obtener)]
         public IActionResult Obtener(int systemId)
         {
-            var relaciones = RelacionesGestor.ObtenerPorSistema(systemId);
+            var relaciones = _relacionesGestor.ObtenerPorSistema(systemId);
             return Ok(relaciones);
         }
 
@@ -24,7 +31,7 @@ namespace Backend.Modulos.Sistemas.Relaciones
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var (id, error) = RelacionesGestor.Crear(systemId, request);
+            var (id, error) = _relacionesGestor.Crear(systemId, request);
             if (id == null)
                 return BadRequest(new { message = error });
 
@@ -38,7 +45,7 @@ namespace Backend.Modulos.Sistemas.Relaciones
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var result = RelacionesGestor.Editar(systemId, id, request);
+            var result = _relacionesGestor.Editar(systemId, id, request);
             if (result.NotFound)
                 return NotFound();
             return result.Ok ? Ok() : BadRequest(new { message = result.Error });

@@ -12,8 +12,15 @@ using Backend.Modulos.Sistemas.Publicacion;
 
 namespace Backend.Modulos.Sistemas.Datos
 {
-    public static class DatosGestor
+    public class DatosGestor
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public DatosGestor(IDbContextFactory<SystemBaseContext> contextos)
+        {
+            _contextos = contextos;
+        }
+
         private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
         {
             "string",
@@ -31,9 +38,9 @@ namespace Backend.Modulos.Sistemas.Datos
             "active"
         };
 
-        public static (bool Ok, string? Error, List<Dictionary<string, object?>> Data, bool SinPermiso) Listar(int systemId, int entityId, int? take, int? skip, int usuarioId)
+        public (bool Ok, string? Error, List<Dictionary<string, object?>> Data, bool SinPermiso) Listar(int systemId, int entityId, int? take, int? skip, int usuarioId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
@@ -86,11 +93,11 @@ namespace Backend.Modulos.Sistemas.Datos
             return (true, null, result, false);
         }
 
-        public static (bool Ok, string? Error, bool SinPermiso) Crear(int systemId, int entityId, Dictionary<string, JsonElement> data, int usuarioId)
+        public (bool Ok, string? Error, bool SinPermiso) Crear(int systemId, int entityId, Dictionary<string, JsonElement> data, int usuarioId)
         {
             data = SinDistinguirMayusculas(data);
 
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
@@ -158,11 +165,11 @@ namespace Backend.Modulos.Sistemas.Datos
             return error == null ? (true, null, false) : (false, error, false);
         }
 
-        public static (bool Ok, string? Error, bool SinPermiso) Editar(int systemId, int entityId, string id, Dictionary<string, JsonElement> data, int usuarioId)
+        public (bool Ok, string? Error, bool SinPermiso) Editar(int systemId, int entityId, string id, Dictionary<string, JsonElement> data, int usuarioId)
         {
             data = SinDistinguirMayusculas(data);
 
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
@@ -222,9 +229,9 @@ namespace Backend.Modulos.Sistemas.Datos
             return error == null ? (true, null, false) : (false, error, false);
         }
 
-        public static (bool Ok, string? Error, bool SinPermiso) Eliminar(int systemId, int entityId, string id, int usuarioId)
+        public (bool Ok, string? Error, bool SinPermiso) Eliminar(int systemId, int entityId, string id, int usuarioId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
@@ -266,7 +273,7 @@ namespace Backend.Modulos.Sistemas.Datos
         /// Abre (si hace falta) la conexión del contexto. No se debe hacer "using" sobre ella:
         /// la libera el contexto, y destruirla rompía la consulta siguiente del mismo request.
         /// </summary>
-        private static DbConnection AbrirConexion(SystemBaseContext context)
+        private DbConnection AbrirConexion(SystemBaseContext context)
         {
             var conn = context.Database.GetDbConnection();
             if (conn.State != ConnectionState.Open)
@@ -278,7 +285,7 @@ namespace Backend.Modulos.Sistemas.Datos
         /// Ejecuta un INSERT/UPDATE/DELETE y traduce los errores de datos conocidos a un mensaje
         /// para el usuario (sin nombres internos de SQL Server). Devuelve null si salió bien.
         /// </summary>
-        private static string? EjecutarTraduciendoErrores(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters, string schemaName, Entities entity, bool esBorrado)
+        private string? EjecutarTraduciendoErrores(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters, string schemaName, Entities entity, bool esBorrado)
         {
             try
             {
@@ -312,7 +319,7 @@ namespace Backend.Modulos.Sistemas.Datos
             }
         }
 
-        private static void ExecuteNonQuery(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters)
+        private void ExecuteNonQuery(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters)
         {
             var conn = AbrirConexion(context);
             using var cmd = conn.CreateCommand();
@@ -323,7 +330,7 @@ namespace Backend.Modulos.Sistemas.Datos
             cmd.ExecuteNonQuery();
         }
 
-        private static object? ExecuteScalar(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters)
+        private object? ExecuteScalar(SystemBaseContext context, string sql, IEnumerable<IDbDataParameter> parameters)
         {
             var conn = AbrirConexion(context);
             using var cmd = conn.CreateCommand();
@@ -334,7 +341,7 @@ namespace Backend.Modulos.Sistemas.Datos
             return cmd.ExecuteScalar();
         }
 
-        private static (bool Ok, string? Error, string SchemaName, Entities Entity, List<Fields> Fields, Fields? Pk) LoadMetadata(SystemBaseContext context, int systemId, int entityId)
+        private (bool Ok, string? Error, string SchemaName, Entities Entity, List<Fields> Fields, Fields? Pk) LoadMetadata(SystemBaseContext context, int systemId, int entityId)
         {
             var system = context.Systems.FirstOrDefault(s => s.Id == systemId);
             if (system == null)
@@ -375,7 +382,7 @@ namespace Backend.Modulos.Sistemas.Datos
 
         private static readonly object InvalidValue = new();
 
-        private static object ConvertPrimaryKey(string id, Fields pk)
+        private object ConvertPrimaryKey(string id, Fields pk)
         {
             if (pk.DataType.Equals("int", StringComparison.OrdinalIgnoreCase))
             {
@@ -394,7 +401,7 @@ namespace Backend.Modulos.Sistemas.Datos
         /// Las columnas se reconocen sin importar mayúsculas: "email" y "Email" son la misma columna
         /// (los clientes JSON suelen mandar camelCase). Antes una clave en otro formato se ignoraba en silencio.
         /// </summary>
-        private static Dictionary<string, JsonElement> SinDistinguirMayusculas(Dictionary<string, JsonElement> data)
+        private Dictionary<string, JsonElement> SinDistinguirMayusculas(Dictionary<string, JsonElement> data)
         {
             var resultado = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
             foreach (var (clave, valor) in data)
@@ -405,7 +412,7 @@ namespace Backend.Modulos.Sistemas.Datos
         private const NumberStyles EstiloEntero = NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
         private const NumberStyles EstiloDecimal = EstiloEntero | NumberStyles.AllowDecimalPoint;
 
-        private static object ConvertValue(JsonElement element, Fields field)
+        private object ConvertValue(JsonElement element, Fields field)
         {
             var type = field.DataType.ToLowerInvariant();
 
@@ -450,7 +457,7 @@ namespace Backend.Modulos.Sistemas.Datos
         /// Fecha con zona (Z u offset): se guarda en UTC, el mismo instante. Sin zona: se guarda tal cual
         /// (hora "de pared" que cargó el usuario). Nunca depende de la zona horaria ni la cultura del servidor.
         /// </summary>
-        private static DateTime ParsearFecha(string texto)
+        private DateTime ParsearFecha(string texto)
         {
             texto = texto.Trim();
             if (ConZonaHoraria.IsMatch(texto))
@@ -459,7 +466,7 @@ namespace Backend.Modulos.Sistemas.Datos
             return DateTime.SpecifyKind(DateTime.Parse(texto, CultureInfo.InvariantCulture, DateTimeStyles.None), DateTimeKind.Unspecified);
         }
 
-        private static (bool Ok, object? Value, string? Error) ValidateAndConvert(Fields field, JsonElement element, bool required)
+        private (bool Ok, object? Value, string? Error) ValidateAndConvert(Fields field, JsonElement element, bool required)
         {
             if (element.ValueKind == JsonValueKind.Null || element.ValueKind == JsonValueKind.Undefined)
             {
@@ -495,7 +502,7 @@ namespace Backend.Modulos.Sistemas.Datos
             return (true, value, null);
         }
 
-        private static bool DecimalWithinPrecision(decimal value, int? precision, int? scale)
+        private bool DecimalWithinPrecision(decimal value, int? precision, int? scale)
         {
             var str = Math.Abs(value).ToString(CultureInfo.InvariantCulture);
             var parts = str.Split('.');
@@ -515,7 +522,7 @@ namespace Backend.Modulos.Sistemas.Datos
             return true;
         }
 
-        private static bool ExistsByValue(SystemBaseContext context, string schemaName, string tableName, string columnName, object value, Fields? pkField, object? pkValue)
+        private bool ExistsByValue(SystemBaseContext context, string schemaName, string tableName, string columnName, object value, Fields? pkField, object? pkValue)
         {
             var sql = new StringBuilder();
             sql.Append($"SELECT TOP 1 1 FROM [{schemaName}].[{tableName}] WHERE [{columnName}] = @p0");
@@ -530,14 +537,14 @@ namespace Backend.Modulos.Sistemas.Datos
             return ExecuteScalar(context, sql.ToString(), parameters) != null;
         }
 
-        private static Fields? GetSoftDeleteField(IEnumerable<Fields> fields)
+        private Fields? GetSoftDeleteField(IEnumerable<Fields> fields)
         {
             return fields.FirstOrDefault(f =>
                 f.DataType.Equals("bool", StringComparison.OrdinalIgnoreCase) &&
                 SoftDeleteNames.Contains(f.ColumnName));
         }
 
-        private static string? TieneDependencias(SystemBaseContext context, int systemId, string schemaName, int entityId, object pkValue)
+        private string? TieneDependencias(SystemBaseContext context, int systemId, string schemaName, int entityId, object pkValue)
         {
             var relations = context.Relations
                 .Where(r => r.SystemId == systemId && r.TargetEntityId == entityId && !r.CascadeDelete)
@@ -572,7 +579,7 @@ namespace Backend.Modulos.Sistemas.Datos
             return null;
         }
 
-        private static IDbDataParameter CreateParameter(string name, object value)
+        private IDbDataParameter CreateParameter(string name, object value)
         {
             var param = new Microsoft.Data.SqlClient.SqlParameter
             {

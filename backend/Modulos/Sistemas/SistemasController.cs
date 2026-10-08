@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Comun;
@@ -18,11 +19,19 @@ namespace Backend.Modulos.Sistemas
     [Authorize]
     public class SistemasController : AppController
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+        private readonly ProcesosSistemas _procesosSistemas;
+        private readonly SistemasGestor _sistemasGestor;
+        private readonly SistemasPublicador _sistemasPublicador;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<SistemasController> _logger;
 
-        public SistemasController(IWebHostEnvironment env, ILogger<SistemasController> logger)
+        public SistemasController(IWebHostEnvironment env, ILogger<SistemasController> logger, IDbContextFactory<SystemBaseContext> contextos, ProcesosSistemas procesosSistemas, SistemasGestor sistemasGestor, SistemasPublicador sistemasPublicador)
         {
+            _contextos = contextos;
+            _procesosSistemas = procesosSistemas;
+            _sistemasGestor = sistemasGestor;
+            _sistemasPublicador = sistemasPublicador;
             _env = env;
             _logger = logger;
         }
@@ -30,21 +39,21 @@ namespace Backend.Modulos.Sistemas
         [HttpGet(Routes.v1.Sistemas.Obtener)]
         public IActionResult Obtener()
         {
-            var sistemas = SistemasGestor.ObtenerTodos();
+            var sistemas = _sistemasGestor.ObtenerTodos();
             return Ok(sistemas);
         }
 
         [HttpGet(Routes.v1.Sistemas.ObtenerPorId)]
         public IActionResult ObtenerPorId(int id)
         {
-            var sistema = SistemasGestor.ObtenerPorId(id);
+            var sistema = _sistemasGestor.ObtenerPorId(id);
             return sistema == null ? NotFound() : Ok(sistema);
         }
 
         [HttpGet(Routes.v1.Sistemas.ObtenerPorSlug)]
         public IActionResult ObtenerPorSlug(string slug)
         {
-            var sistema = SistemasGestor.ObtenerPorSlug(slug);
+            var sistema = _sistemasGestor.ObtenerPorSlug(slug);
             return sistema == null ? NotFound() : Ok(sistema);
         }
 
@@ -55,7 +64,7 @@ namespace Backend.Modulos.Sistemas
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var id = SistemasGestor.Crear(request);
+            var id = _sistemasGestor.Crear(request);
             if (id == null)
                 return Conflict("Slug invalido o ya existe.");
 
@@ -69,7 +78,7 @@ namespace Backend.Modulos.Sistemas
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var ok = SistemasGestor.Editar(id, request);
+            var ok = _sistemasGestor.Editar(id, request);
             return ok ? Ok() : NotFound();
         }
 
@@ -77,15 +86,15 @@ namespace Backend.Modulos.Sistemas
         [HttpDelete(Routes.v1.Sistemas.Eliminar)]
         public IActionResult Eliminar(int id)
         {
-            var sistema = SistemasGestor.ObtenerPorId(id);
+            var sistema = _sistemasGestor.ObtenerPorId(id);
             if (sistema == null)
                 return NotFound();
 
             // Los procesos generados tienen archivos abiertos en la carpeta que se va a archivar.
-            ProcesosSistemas.Detener(Componente.Backend, id);
-            ProcesosSistemas.Detener(Componente.Frontend, id);
+            _procesosSistemas.Detener(Componente.Backend, id);
+            _procesosSistemas.Detener(Componente.Frontend, id);
 
-            var result = SistemasGestor.Eliminar(id);
+            var result = _sistemasGestor.Eliminar(id);
             if (result.NotFound)
                 return NotFound();
 
@@ -100,7 +109,7 @@ namespace Backend.Modulos.Sistemas
             // Sin sistema no hay credenciales: se borran su login y usuarios SQL (los datos quedan archivados).
             try
             {
-                using var context = new SystemBaseContext();
+                using var context = _contextos.CreateDbContext();
                 CredencialesSistema.Eliminar(context, sistema.Slug);
             }
             catch (Exception ex)
@@ -114,7 +123,7 @@ namespace Backend.Modulos.Sistemas
         [HttpPost(Routes.v1.Sistemas.Publicar)]
         public IActionResult Publicar(int id)
         {
-            var result = SistemasPublicador.Publicar(id);
+            var result = _sistemasPublicador.Publicar(id);
             return result.Ok ? Ok(result) : BadRequest(result);
         }
 

@@ -7,8 +7,15 @@ using Backend.Modulos.Sistemas.GeneradorBackend.Modelos;
 
 namespace Backend.Modulos.Sistemas.GeneradorBackend
 {
-    public static class BackendConfigGestor
+    public class BackendConfigGestor
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public BackendConfigGestor(IDbContextFactory<SystemBaseContext> contextos)
+        {
+            _contextos = contextos;
+        }
+
         private const string BackendModuleName = "backend";
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -23,9 +30,9 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             "active"
         };
 
-        public static BackendConfigResponse ObtenerPorSistema(int systemId)
+        public BackendConfigResponse ObtenerPorSistema(int systemId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
             var moduleId = EnsureBackendModule(context);
 
             var systemConfig = LoadSystemConfig(context, systemId, moduleId);
@@ -76,9 +83,9 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             return response;
         }
 
-        public static void GuardarPorSistema(int systemId, BackendConfigRequest request)
+        public void GuardarPorSistema(int systemId, BackendConfigRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
             var moduleId = EnsureBackendModule(context);
 
             var systemModule = EnsureSystemModule(context, systemId, moduleId);
@@ -121,7 +128,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             context.SaveChanges();
         }
 
-        private static BackendSystemConfig LoadSystemConfig(SystemBaseContext context, int systemId, int moduleId)
+        private BackendSystemConfig LoadSystemConfig(SystemBaseContext context, int systemId, int moduleId)
         {
             var defaults = new BackendSystemConfig();
             var module = context.SystemModules
@@ -137,7 +144,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             return ApplySystemConfigData(defaults, data);
         }
 
-        private static SystemModules EnsureSystemModule(SystemBaseContext context, int systemId, int moduleId)
+        private SystemModules EnsureSystemModule(SystemBaseContext context, int systemId, int moduleId)
         {
             var module = context.SystemModules
                 .FirstOrDefault(sm => sm.SystemId == systemId && sm.ModuleId == moduleId);
@@ -157,7 +164,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             return module;
         }
 
-        private static BackendEntityConfig BuildDefaultEntityConfig(Entities entity, List<Fields> fields, BackendSystemConfig systemConfig)
+        private BackendEntityConfig BuildDefaultEntityConfig(Entities entity, List<Fields> fields, BackendSystemConfig systemConfig)
         {
             var pk = fields.FirstOrDefault(f => f.IsPrimaryKey) ?? fields.FirstOrDefault();
             var softDeleteField = fields.FirstOrDefault(f => SoftDeleteNames.Contains(f.ColumnName));
@@ -205,7 +212,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             return config;
         }
 
-        private static BackendEntityConfig ApplyEntityConfigData(BackendEntityConfig defaults, BackendEntityConfigData? data)
+        private BackendEntityConfig ApplyEntityConfigData(BackendEntityConfig defaults, BackendEntityConfigData? data)
         {
             if (data == null)
                 return defaults;
@@ -248,7 +255,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             return defaults;
         }
 
-        private static BackendSystemConfig ApplySystemConfigData(BackendSystemConfig defaults, BackendSystemConfigData data)
+        private BackendSystemConfig ApplySystemConfigData(BackendSystemConfig defaults, BackendSystemConfigData data)
         {
             defaults.ApiBase = string.IsNullOrWhiteSpace(data.ApiBase) ? defaults.ApiBase : data.ApiBase!;
             defaults.RequireAuth = data.RequireAuth ?? defaults.RequireAuth;
@@ -259,7 +266,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             return defaults;
         }
 
-        private static BackendSystemConfigData ToSystemConfigData(BackendSystemConfig config)
+        private BackendSystemConfigData ToSystemConfigData(BackendSystemConfig config)
         {
             return new BackendSystemConfigData
             {
@@ -272,7 +279,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             };
         }
 
-        private static BackendEntityConfigData ToEntityConfigData(BackendEntityConfig config)
+        private BackendEntityConfigData ToEntityConfigData(BackendEntityConfig config)
         {
             var data = new BackendEntityConfigData
             {
@@ -307,7 +314,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             return data;
         }
 
-        private static T? TryDeserialize<T>(string json)
+        private T? TryDeserialize<T>(string json)
         {
             try
             {
@@ -319,7 +326,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             }
         }
 
-        private static int EnsureBackendModule(SystemBaseContext context)
+        private int EnsureBackendModule(SystemBaseContext context)
         {
             var module = context.Modules.FirstOrDefault(m => m.Name == BackendModuleName);
             if (module != null)

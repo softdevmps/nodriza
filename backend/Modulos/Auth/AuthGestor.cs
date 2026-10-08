@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
 using Backend.Comun.BaseDeDatos;
 using Backend.Comun.BaseDeDatos.Tablas;
@@ -8,11 +9,18 @@ using Backend.Modulos.Auth.Modelos;
 
 namespace Backend.Modulos.Auth
 {
-    public static class AuthGestor
+    public class AuthGestor
     {
-        public static LoginResponse? Login(LoginRequest request)
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public AuthGestor(IDbContextFactory<SystemBaseContext> contextos)
         {
-            using var context = new SystemBaseContext();
+            _contextos = contextos;
+        }
+
+        public LoginResponse? Login(LoginRequest request)
+        {
+            using var context = _contextos.CreateDbContext();
 
             var usuario = context.Usuarios
                 .FirstOrDefault(u =>
@@ -42,9 +50,9 @@ namespace Backend.Modulos.Auth
         }
 
         /// <summary>Devuelve null si se registró; si no, el motivo para el usuario.</summary>
-        public static string? Registrar(RegistrarRequest model)
+        public string? Registrar(RegistrarRequest model)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             if (PoliticaContrasenas.Validar(model.Password) is { } motivo)
                 return motivo;

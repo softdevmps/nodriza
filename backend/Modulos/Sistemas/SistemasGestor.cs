@@ -6,11 +6,18 @@ using Backend.Modulos.Sistemas.Modelos;
 
 namespace Backend.Modulos.Sistemas
 {
-    public static class SistemasGestor
+    public class SistemasGestor
     {
-        public static List<SistemaResponse> ObtenerTodos()
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public SistemasGestor(IDbContextFactory<SystemBaseContext> contextos)
         {
-            using var context = new SystemBaseContext();
+            _contextos = contextos;
+        }
+
+        public List<SistemaResponse> ObtenerTodos()
+        {
+            using var context = _contextos.CreateDbContext();
 
             return context.Systems
                 .OrderBy(s => s.Id)
@@ -28,9 +35,9 @@ namespace Backend.Modulos.Sistemas
                 .ToList();
         }
 
-        public static SistemaDetalleResponse? ObtenerPorId(int id)
+        public SistemaDetalleResponse? ObtenerPorId(int id)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var sistema = context.Systems.FirstOrDefault(s => s.Id == id);
             if (sistema == null)
@@ -52,9 +59,9 @@ namespace Backend.Modulos.Sistemas
             };
         }
 
-        public static SistemaDetalleResponse? ObtenerPorSlug(string slug)
+        public SistemaDetalleResponse? ObtenerPorSlug(string slug)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var sistema = context.Systems.FirstOrDefault(s => s.Slug == slug);
             if (sistema == null)
@@ -76,9 +83,9 @@ namespace Backend.Modulos.Sistemas
             };
         }
 
-        public static int? Crear(SistemaCreateRequest request)
+        public int? Crear(SistemaCreateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var slug = request.Slug.Trim().ToLowerInvariant();
             if (!IsValidSlug(slug))
@@ -105,9 +112,9 @@ namespace Backend.Modulos.Sistemas
             return sistema.Id;
         }
 
-        public static bool Editar(int id, SistemaUpdateRequest request)
+        public bool Editar(int id, SistemaUpdateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var sistema = context.Systems.FirstOrDefault(s => s.Id == id);
             if (sistema == null)
@@ -124,9 +131,9 @@ namespace Backend.Modulos.Sistemas
             return true;
         }
 
-        public static (bool Ok, bool NotFound, string? Error, string? SchemaArchivado) Eliminar(int id)
+        public (bool Ok, bool NotFound, string? Error, string? SchemaArchivado) Eliminar(int id)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var sistema = context.Systems.FirstOrDefault(s => s.Id == id);
             if (sistema == null)
@@ -201,7 +208,7 @@ namespace Backend.Modulos.Sistemas
         /// SQL Server no permite renombrar un schema: se crea el nuevo y se transfiere cada objeto.
         /// Devuelve el nombre del schema archivado, o null si el sistema no estaba publicado.
         /// </summary>
-        private static string? ArchivarSchema(SystemBaseContext context, string slug)
+        private string? ArchivarSchema(SystemBaseContext context, string slug)
         {
             var origen = $"sys_{slug}";
             var destino = $"{origen}_eliminado_{DateTime.UtcNow:yyyyMMddHHmmss}";
@@ -237,6 +244,6 @@ SELECT CAST(1 AS BIT) AS Value;";
         // dígitos y guion bajo, empezando con letra. Máximo 60 (deja lugar al sufijo de archivado).
         private static readonly System.Text.RegularExpressions.Regex PatronSlug = new("^[a-z][a-z0-9_]{0,59}$");
 
-        private static bool IsValidSlug(string slug) => PatronSlug.IsMatch(slug);
+        private bool IsValidSlug(string slug) => PatronSlug.IsMatch(slug);
     }
 }

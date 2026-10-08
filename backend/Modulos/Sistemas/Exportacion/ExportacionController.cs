@@ -10,10 +10,14 @@ namespace Backend.Modulos.Sistemas.Exportacion
     [Authorize(Policy = Politicas.Admin)]
     public class ExportacionController : AppController
     {
+        private readonly SistemasExportador _sistemasExportador;
+        private readonly SistemasGestor _sistemasGestor;
         private readonly IWebHostEnvironment _env;
 
-        public ExportacionController(IWebHostEnvironment env)
+        public ExportacionController(IWebHostEnvironment env, SistemasExportador sistemasExportador, SistemasGestor sistemasGestor)
         {
+            _sistemasExportador = sistemasExportador;
+            _sistemasGestor = sistemasGestor;
             _env = env;
         }
 
@@ -42,14 +46,14 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
             if (preferWorkspaceZip)
             {
-                var sistema = SistemasGestor.ObtenerPorId(id);
+                var sistema = _sistemasGestor.ObtenerPorId(id);
                 if (sistema == null)
                     return NotFound();
 
                 var workspacePath = Path.Combine(systemsRoot, sistema.Slug);
                 if (!Directory.Exists(workspacePath))
                 {
-                    var exportResult = SistemasExportador.Exportar(
+                    var exportResult = _sistemasExportador.Exportar(
                         id,
                         systemsRoot,
                         _env.ContentRootPath,
@@ -64,7 +68,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
                     workspacePath = exportResult.ExportPath;
                 }
 
-                var metadataResult = SistemasExportador.ActualizarMetadata(
+                var metadataResult = _sistemasExportador.ActualizarMetadata(
                     id,
                     workspacePath,
                     _env.ContentRootPath,
@@ -96,7 +100,7 @@ namespace Backend.Modulos.Sistemas.Exportacion
 
             var exportRoot = normalizedMode == "workspace" ? systemsRoot : exportsRoot;
 
-            var result = SistemasExportador.Exportar(
+            var result = _sistemasExportador.Exportar(
                 id,
                 exportRoot,
                 _env.ContentRootPath,

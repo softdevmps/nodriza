@@ -9,6 +9,13 @@ namespace Backend.Modulos.Menu
     [Authorize]
     public class MenuController : AppController
     {
+        private readonly MenuGestor _menuGestor;
+
+        public MenuController(MenuGestor menuGestor)
+        {
+            _menuGestor = menuGestor;
+        }
+
         [HttpGet(Routes.v1.Menu.Obtener)]
         public IActionResult ObtenerMenu()
         {
@@ -17,7 +24,7 @@ namespace Backend.Modulos.Menu
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var menu = MenuGestor.ObtenerMenuPorUsuario(usuario.UsuarioId);
+            var menu = _menuGestor.ObtenerMenuPorUsuario(usuario.UsuarioId);
 
             return Ok(menu);
         }
@@ -30,7 +37,7 @@ namespace Backend.Modulos.Menu
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var menu = MenuGestor.ObtenerMenuTreePorUsuario(usuario.UsuarioId);
+            var menu = _menuGestor.ObtenerMenuTreePorUsuario(usuario.UsuarioId);
 
             return Ok(menu);
         }
@@ -43,7 +50,7 @@ namespace Backend.Modulos.Menu
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var menu = MenuGestor.ObtenerSidebarTreePorUsuario(usuario.UsuarioId);
+            var menu = _menuGestor.ObtenerSidebarTreePorUsuario(usuario.UsuarioId);
 
             return Ok(menu);
         }

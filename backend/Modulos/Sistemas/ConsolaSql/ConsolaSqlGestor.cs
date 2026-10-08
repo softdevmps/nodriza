@@ -10,10 +10,17 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
     /// Consola SQL de bootstrap (solo DEV y admin): valida el script, lo corre aislado en sys_&lt;slug&gt;
     /// (EXECUTE AS un usuario sin login, ver CredencialesSistema) y opcionalmente sincroniza la metadata.
     /// </summary>
-    public static class ConsolaSqlGestor
+    public class ConsolaSqlGestor
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public ConsolaSqlGestor(IDbContextFactory<SystemBaseContext> contextos)
+        {
+            _contextos = contextos;
+        }
+
         /// <summary>Devuelve (Ok, Error, Resultado). El error de SQL va tal cual: es el script del propio admin.</summary>
-        public static (bool Ok, string? Error, object? Resultado) Ejecutar(int systemId, string slug, string? scriptOriginal, bool importarMetadata)
+        public (bool Ok, string? Error, object? Resultado) Ejecutar(int systemId, string slug, string? scriptOriginal, bool importarMetadata)
         {
             var script = NormalizeSqlScript(scriptOriginal);
             if (string.IsNullOrWhiteSpace(script))
@@ -28,7 +35,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
             if (batches.Count == 0)
                 return (false, "No se detectaron sentencias SQL ejecutables.", null);
 
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             // El script NO corre como la cuenta de la fábrica: corre como un usuario de base sin login
             // que solo tiene permisos en sys_<slug>. Aunque se evada el filtro (p. ej. con SQL dinámico),
@@ -87,7 +94,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
             }
         }
 
-        private static string NormalizeSqlScript(string? script)
+        private string NormalizeSqlScript(string? script)
         {
             if (string.IsNullOrWhiteSpace(script))
                 return string.Empty;
@@ -98,7 +105,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
                 .Trim();
         }
 
-        private static (bool Ok, string Error) ValidateSqlScript(string script, string expectedSchema)
+        private (bool Ok, string Error) ValidateSqlScript(string script, string expectedSchema)
         {
             if (script.Length > 200_000)
                 return (false, "El script excede el tamano permitido (200 KB).");
@@ -150,7 +157,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
             return (true, string.Empty);
         }
 
-        private static bool TryExtractSchema(string value, out string schema)
+        private bool TryExtractSchema(string value, out string schema)
         {
             schema = string.Empty;
             var parts = value.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -161,7 +168,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
             return !string.IsNullOrWhiteSpace(schema);
         }
 
-        private static string TrimSqlIdentifier(string value)
+        private string TrimSqlIdentifier(string value)
         {
             var trimmed = value.Trim();
             if (trimmed.StartsWith("[") && trimmed.EndsWith("]") && trimmed.Length >= 2)
@@ -169,7 +176,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
             return trimmed;
         }
 
-        private static List<string> SplitSqlBatches(string script)
+        private List<string> SplitSqlBatches(string script)
         {
             var chunks = Regex.Split(
                 script,
@@ -188,7 +195,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
         /// así que van sin parámetros. Los valores interpolados son seguros: un nombre derivado del slug
         /// validado ([a-z0-9_]) y la cookie en hexadecimal.
         /// </summary>
-        private static object? EjecutarAdHoc(SystemBaseContext context, string sql)
+        private object? EjecutarAdHoc(SystemBaseContext context, string sql)
         {
             var conn = context.Database.GetDbConnection();
             using var cmd = conn.CreateCommand();
@@ -197,7 +204,7 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
             return cmd.ExecuteScalar();
         }
 
-        private static void RevertirContexto(SystemBaseContext context, byte[] cookie)
+        private void RevertirContexto(SystemBaseContext context, byte[] cookie)
         {
             try
             {

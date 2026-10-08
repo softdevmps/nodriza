@@ -10,6 +10,13 @@ namespace Backend.Modulos.Sistemas.Datos
     [Authorize]
     public class DatosController : AppController
     {
+        private readonly DatosGestor _datosGestor;
+
+        public DatosController(DatosGestor datosGestor)
+        {
+            _datosGestor = datosGestor;
+        }
+
         [HttpGet(Routes.v1.Datos.Obtener)]
         public IActionResult Obtener(int systemId, int entityId, [FromQuery] int? take, [FromQuery] int? skip)
         {
@@ -17,7 +24,7 @@ namespace Backend.Modulos.Sistemas.Datos
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var result = DatosGestor.Listar(systemId, entityId, take, skip, usuario.UsuarioId);
+            var result = _datosGestor.Listar(systemId, entityId, take, skip, usuario.UsuarioId);
             return result.Ok ? Ok(result.Data) : Fallo(result.Error, result.SinPermiso);
         }
 
@@ -28,7 +35,7 @@ namespace Backend.Modulos.Sistemas.Datos
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var result = DatosGestor.Crear(systemId, entityId, data, usuario.UsuarioId);
+            var result = _datosGestor.Crear(systemId, entityId, data, usuario.UsuarioId);
             return result.Ok ? Ok() : Fallo(result.Error, result.SinPermiso);
         }
 
@@ -39,7 +46,7 @@ namespace Backend.Modulos.Sistemas.Datos
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var result = DatosGestor.Editar(systemId, entityId, id, data, usuario.UsuarioId);
+            var result = _datosGestor.Editar(systemId, entityId, id, data, usuario.UsuarioId);
             return result.Ok ? Ok() : Fallo(result.Error, result.SinPermiso);
         }
 
@@ -50,7 +57,7 @@ namespace Backend.Modulos.Sistemas.Datos
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var result = DatosGestor.Eliminar(systemId, entityId, id, usuario.UsuarioId);
+            var result = _datosGestor.Eliminar(systemId, entityId, id, usuario.UsuarioId);
             return result.Ok ? Ok() : Fallo(result.Error, result.SinPermiso);
         }
     

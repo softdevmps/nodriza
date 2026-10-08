@@ -8,8 +8,15 @@ using Backend.Modulos.Sistemas.Publicacion;
 
 namespace Backend.Modulos.Sistemas.Entidades
 {
-    public static class EntidadesGestor
+    public class EntidadesGestor
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public EntidadesGestor(IDbContextFactory<SystemBaseContext> contextos)
+        {
+            _contextos = contextos;
+        }
+
         public sealed class EliminarEntidadResult
         {
             public bool Ok { get; set; }
@@ -19,9 +26,9 @@ namespace Backend.Modulos.Sistemas.Entidades
             public string Message { get; set; } = "Entidad eliminada.";
         }
 
-        public static List<EntidadResponse> ObtenerPorSistema(int systemId)
+        public List<EntidadResponse> ObtenerPorSistema(int systemId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             return context.Entities
                 .Where(e => e.SystemId == systemId)
@@ -41,9 +48,9 @@ namespace Backend.Modulos.Sistemas.Entidades
                 .ToList();
         }
 
-        public static List<EntidadResponse> ObtenerParaRuntime(int systemId, int usuarioId)
+        public List<EntidadResponse> ObtenerParaRuntime(int systemId, int usuarioId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var allowed = PermisosGestor.ObtenerEntidadesPermitidas(context, usuarioId, systemId, "view");
 
@@ -65,9 +72,9 @@ namespace Backend.Modulos.Sistemas.Entidades
                 .ToList();
         }
 
-        public static EntidadResponse? ObtenerPorId(int systemId, int id)
+        public EntidadResponse? ObtenerPorId(int systemId, int id)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var entity = context.Entities.FirstOrDefault(e => e.Id == id && e.SystemId == systemId);
             if (entity == null)
@@ -86,9 +93,9 @@ namespace Backend.Modulos.Sistemas.Entidades
             };
         }
 
-        public static EntidadResponse? ObtenerPorNombre(int systemId, string name)
+        public EntidadResponse? ObtenerPorNombre(int systemId, string name)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var entity = context.Entities.FirstOrDefault(e => e.SystemId == systemId && e.Name == name);
             if (entity == null)
@@ -107,9 +114,9 @@ namespace Backend.Modulos.Sistemas.Entidades
             };
         }
 
-        public static int? Crear(int systemId, EntidadCreateRequest request)
+        public int? Crear(int systemId, EntidadCreateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var sistemaExiste = context.Systems.Any(s => s.Id == systemId);
             if (!sistemaExiste)
@@ -143,9 +150,9 @@ namespace Backend.Modulos.Sistemas.Entidades
             return entidad.Id;
         }
 
-        public static bool Editar(int systemId, int id, EntidadUpdateRequest request)
+        public bool Editar(int systemId, int id, EntidadUpdateRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var entidad = context.Entities.FirstOrDefault(e => e.Id == id && e.SystemId == systemId);
             if (entidad == null)
@@ -174,9 +181,9 @@ namespace Backend.Modulos.Sistemas.Entidades
             return true;
         }
 
-        public static EliminarEntidadResult Eliminar(int systemId, int id, bool dropTable)
+        public EliminarEntidadResult Eliminar(int systemId, int id, bool dropTable)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
             using var tx = context.Database.BeginTransaction();
             try
             {
@@ -293,7 +300,7 @@ namespace Backend.Modulos.Sistemas.Entidades
             }
         }
 
-        private static void DropRuntimeTable(SystemBaseContext context, string schemaName, string tableName)
+        private void DropRuntimeTable(SystemBaseContext context, string schemaName, string tableName)
         {
             const string sql = @"
 DECLARE @schema SYSNAME = @p_schema;

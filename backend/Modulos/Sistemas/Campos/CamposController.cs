@@ -10,10 +10,17 @@ namespace Backend.Modulos.Sistemas.Campos
     [Authorize]
     public class CamposController : AppController
     {
+        private readonly CamposGestor _camposGestor;
+
+        public CamposController(CamposGestor camposGestor)
+        {
+            _camposGestor = camposGestor;
+        }
+
         [HttpGet(Routes.v1.Campos.Obtener)]
         public IActionResult Obtener(int systemId, int entityId)
         {
-            var campos = CamposGestor.ObtenerPorEntidad(systemId, entityId);
+            var campos = _camposGestor.ObtenerPorEntidad(systemId, entityId);
             return Ok(campos);
         }
 
@@ -24,7 +31,7 @@ namespace Backend.Modulos.Sistemas.Campos
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var id = CamposGestor.Crear(systemId, entityId, request);
+            var id = _camposGestor.Crear(systemId, entityId, request);
             if (id == null)
                 return Conflict("Campo duplicado, tipo invalido o entidad inexistente.");
 
@@ -38,7 +45,7 @@ namespace Backend.Modulos.Sistemas.Campos
             if (!ModelState.IsValid)
                 return BadRequest();
 
-            var ok = CamposGestor.Editar(systemId, entityId, id, request);
+            var ok = _camposGestor.Editar(systemId, entityId, id, request);
             return ok ? Ok() : NotFound();
         }
     }

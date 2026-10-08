@@ -5,11 +5,18 @@ using Backend.Modulos.Menu.Modelos;
 
 namespace Backend.Modulos.Menu
 {
-    public static class MenuGestor
+    public class MenuGestor
     {
-        public static List<MenuItemResponse> ObtenerMenuPorUsuario(int usuarioId)
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public MenuGestor(IDbContextFactory<SystemBaseContext> contextos)
         {
-            using var context = new SystemBaseContext();
+            _contextos = contextos;
+        }
+
+        public List<MenuItemResponse> ObtenerMenuPorUsuario(int usuarioId)
+        {
+            using var context = _contextos.CreateDbContext();
 
             var menus = context.Menus
                 .Where(m =>
@@ -33,9 +40,9 @@ namespace Backend.Modulos.Menu
             return menus;
         }
 
-        public static bool Crear(MenuRequest request)
+        public bool Crear(MenuRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var ruta = MenuViewGenerator.NormalizeRoute(request.Ruta);
 
@@ -97,9 +104,9 @@ namespace Backend.Modulos.Menu
             return true;
         }
 
-        public static bool Editar(int id, MenuRequest request)
+        public bool Editar(int id, MenuRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var menu = context.Menus
                 .Include(m => m.Rol)
@@ -129,9 +136,9 @@ namespace Backend.Modulos.Menu
             return true;
         }
 
-        public static bool Desactivar(int id)
+        public bool Desactivar(int id)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var menu = context.Menus.FirstOrDefault(m => m.Id == id);
             if (menu == null)
@@ -142,9 +149,9 @@ namespace Backend.Modulos.Menu
             return true;
         }
 
-        public static List<MenuTreeResponse> ObtenerMenuTreePorUsuario(int usuarioId)
+        public List<MenuTreeResponse> ObtenerMenuTreePorUsuario(int usuarioId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             // 1️⃣ Traemos TODOS los menús permitidos (plano)
             var menus = context.Menus
@@ -209,9 +216,9 @@ namespace Backend.Modulos.Menu
             return root;
         }
 
-        public static List<MenuTreeResponse> ObtenerSidebarTreePorUsuario(int usuarioId)
+        public List<MenuTreeResponse> ObtenerSidebarTreePorUsuario(int usuarioId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
 
             var baseMenu = ObtenerMenuTreePorUsuario(usuarioId);
 

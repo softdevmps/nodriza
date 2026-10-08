@@ -6,8 +6,15 @@ using Backend.Modulos.Sistemas.GeneradorFrontend.Modelos;
 
 namespace Backend.Modulos.Sistemas.GeneradorFrontend
 {
-    public static class FrontendConfigGestor
+    public class FrontendConfigGestor
     {
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public FrontendConfigGestor(IDbContextFactory<SystemBaseContext> contextos)
+        {
+            _contextos = contextos;
+        }
+
         private const string FrontendModuleName = "frontend";
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -15,9 +22,9 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             WriteIndented = false
         };
 
-        public static FrontendConfigResponse ObtenerPorSistema(int systemId)
+        public FrontendConfigResponse ObtenerPorSistema(int systemId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
             var moduleId = EnsureFrontendModule(context);
 
             var systemConfig = LoadSystemConfig(context, systemId, moduleId);
@@ -65,9 +72,9 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return response;
         }
 
-        public static void GuardarPorSistema(int systemId, FrontendConfigRequest request)
+        public void GuardarPorSistema(int systemId, FrontendConfigRequest request)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
             var moduleId = EnsureFrontendModule(context);
 
             var systemModule = EnsureSystemModule(context, systemId, moduleId);
@@ -109,9 +116,9 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             context.SaveChanges();
         }
 
-        public static void HabilitarFrontend(int systemId)
+        public void HabilitarFrontend(int systemId)
         {
-            using var context = new SystemBaseContext();
+            using var context = _contextos.CreateDbContext();
             var moduleId = EnsureFrontendModule(context);
 
             var module = context.SystemModules
@@ -135,7 +142,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             context.SaveChanges();
         }
 
-        private static FrontendSystemConfig LoadSystemConfig(SystemBaseContext context, int systemId, int moduleId)
+        private FrontendSystemConfig LoadSystemConfig(SystemBaseContext context, int systemId, int moduleId)
         {
             var defaults = BuildDefaultSystemConfig(context, systemId);
             var module = context.SystemModules
@@ -152,7 +159,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return data;
         }
 
-        private static SystemModules EnsureSystemModule(SystemBaseContext context, int systemId, int moduleId)
+        private SystemModules EnsureSystemModule(SystemBaseContext context, int systemId, int moduleId)
         {
             var module = context.SystemModules
                 .FirstOrDefault(sm => sm.SystemId == systemId && sm.ModuleId == moduleId);
@@ -172,7 +179,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return module;
         }
 
-        private static int EnsureFrontendModule(SystemBaseContext context)
+        private int EnsureFrontendModule(SystemBaseContext context)
         {
             var module = context.Modules.FirstOrDefault(m => m.Name == FrontendModuleName);
             if (module != null)
@@ -188,7 +195,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return module.Id;
         }
 
-        private static FrontendSystemConfig BuildDefaultSystemConfig(SystemBaseContext context, int systemId)
+        private FrontendSystemConfig BuildDefaultSystemConfig(SystemBaseContext context, int systemId)
         {
             var defaults = new FrontendSystemConfig();
             var system = context.Systems
@@ -209,7 +216,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return defaults;
         }
 
-        private static void NormalizeSystemConfig(FrontendSystemConfig config, FrontendSystemConfig defaults)
+        private void NormalizeSystemConfig(FrontendSystemConfig config, FrontendSystemConfig defaults)
         {
             config.AppTitle = ResolveSystemTitle(config.AppTitle, defaults.AppTitle);
 
@@ -217,7 +224,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
                 config.Tagline = defaults.Tagline;
         }
 
-        private static string ResolveSystemTitle(string? configuredTitle, string fallbackTitle)
+        private string ResolveSystemTitle(string? configuredTitle, string fallbackTitle)
         {
             var title = (configuredTitle ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(title))
@@ -233,7 +240,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return isGenericTitle && hasSpecificFallback ? fallbackTitle : title;
         }
 
-        private static FrontendEntityConfig BuildDefaultEntityConfig(Entities entity, List<Fields> fields)
+        private FrontendEntityConfig BuildDefaultEntityConfig(Entities entity, List<Fields> fields)
         {
             var config = new FrontendEntityConfig
             {
@@ -287,7 +294,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return config;
         }
 
-        private static FrontendEntityConfig ApplyEntityConfigData(FrontendEntityConfig defaults, FrontendEntityConfig? data)
+        private FrontendEntityConfig ApplyEntityConfigData(FrontendEntityConfig defaults, FrontendEntityConfig? data)
         {
             if (data == null)
                 return defaults;
@@ -359,7 +366,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             return defaults;
         }
 
-        private static T? TryDeserialize<T>(string json) where T : class
+        private T? TryDeserialize<T>(string json) where T : class
         {
             try
             {

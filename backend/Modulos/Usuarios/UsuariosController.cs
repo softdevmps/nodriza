@@ -11,17 +11,24 @@ namespace Backend.Modulos.Usuarios
     [Authorize(Policy = Politicas.Admin)]
     public class UsuariosController : AppController
     {
+        private readonly UsuariosGestor _usuariosGestor;
+
+        public UsuariosController(UsuariosGestor usuariosGestor)
+        {
+            _usuariosGestor = usuariosGestor;
+        }
+
         [HttpGet(Routes.v1.Usuarios.Obtener)]
         public IActionResult Obtener()
         {
-            var usuarios = UsuariosGestor.ObtenerTodos();
+            var usuarios = _usuariosGestor.ObtenerTodos();
             return Ok(usuarios);
         }
 
         [HttpGet(Routes.v1.Usuarios.ObtenerPorId)]
         public IActionResult ObtenerPorId(int id)
         {
-            var usuario = UsuariosGestor.ObtenerPorId(id);
+            var usuario = _usuariosGestor.ObtenerPorId(id);
 
             if (usuario == null)
                 return NotFound();
@@ -32,14 +39,14 @@ namespace Backend.Modulos.Usuarios
         [HttpPost(Routes.v1.Usuarios.Crear)]
         public IActionResult Crear([FromBody] UsuarioCreateRequest request)
         {
-            var (ok, error) = UsuariosGestor.Crear(request);
+            var (ok, error) = _usuariosGestor.Crear(request);
             return ok ? Ok() : BadRequest(new { message = error });
         }
 
         [HttpPut(Routes.v1.Usuarios.Editar)]
         public IActionResult Editar(int id, [FromBody] UsuarioUpdateRequest request)
         {
-            var result = UsuariosGestor.Editar(id, request);
+            var result = _usuariosGestor.Editar(id, request);
             if (result.NotFound)
                 return NotFound();
 
@@ -49,7 +56,7 @@ namespace Backend.Modulos.Usuarios
         [HttpPut(Routes.v1.Usuarios.Estado)]
         public IActionResult CambiarEstado(int id, [FromQuery] bool activo)
         {
-            var ok = UsuariosGestor.CambiarEstado(id, activo);
+            var ok = _usuariosGestor.CambiarEstado(id, activo);
             if (!ok)
                 return NotFound();
 

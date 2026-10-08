@@ -56,12 +56,23 @@ Todos los módulos tienen la misma forma:
 
 ```
 Modulos/Usuarios/
-├── UsuariosController.cs   Recibe el request HTTP, valida y llama al gestor. Sin lógica de negocio.
+├── UsuariosController.cs   Recibe el request HTTP, valida y llama al gestor (que recibe por constructor). Sin lógica de negocio.
 ├── UsuariosGestor.cs       La lógica: consultas a la base, reglas, validaciones.
 └── Modelos/                Lo que entra y sale por la API (XxxRequest, XxxResponse).
 ```
 
 El flujo de un request es siempre **Routes.cs → Controller → Gestor → base de datos**.
+
+Los gestores son clases normales registradas en `Comun/Inyeccion.cs`. El controller los recibe por constructor y cada gestor recibe una fábrica de contextos (`IDbContextFactory<SystemBaseContext>`): en cada método abre su conexión con `using var context = _contextos.CreateDbContext();`.
+
+```csharp
+public class UsuariosController : AppController
+{
+    private readonly UsuariosGestor _usuariosGestor;
+    public UsuariosController(UsuariosGestor usuariosGestor) { _usuariosGestor = usuariosGestor; }
+    // ... _usuariosGestor.ObtenerTodos()
+}
+```
 
 ### Namespaces
 
@@ -146,5 +157,5 @@ Antes de tocar algo con riesgo (publicación, permisos, datos) escribí o ajust�
 3. Verificá contra la base con `_e.EscalarAsync(...)`, además del status HTTP.
 
 **Crear un módulo nuevo** (ej: Clientes)
-- Backend: `Modulos/Clientes/` con `ClientesController.cs`, `ClientesGestor.cs` y `Modelos/`, y las rutas en `Routes.cs`.
+- Backend: `Modulos/Clientes/` con `ClientesController.cs`, `ClientesGestor.cs` y `Modelos/`, las rutas en `Routes.cs` y `services.AddSingleton<ClientesGestor>()` en `Comun/Inyeccion.cs`.
 - Frontend: `modulos/clientes/` con `Clientes.vue`, `cliente.service.js` y `componentes/`, y la ruta en `router/index.js`.

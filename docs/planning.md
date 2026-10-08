@@ -139,7 +139,7 @@ cd frontend && npm install && npm run dev   # entrar con admin/admin
 | ✅ D2 | Helpers duplicados (`ToSafeSqlName`, `ToKebab`, `MapSqlType`, `ToPascalCase`) en 4 o 5 archivos, y con pequeñas diferencias entre sí. |
 | D3 | El generador de backend escribe el código C# a partir de strings dentro de C#. Es difícil de leer y de mantener. |
 | D4 | `frontend/` y `frontend-runtime/` duplican layout, auth, utilidades y el runtime, y ya divergieron. |
-| D5 | Los gestores son `static` y hacen `new SystemBaseContext()` en cada método. No se pueden testear ni inyectar dependencias. |
+| ✅ D5 | ~~Gestores `static` con `new SystemBaseContext()`~~: ahora se inyectan (Fase 4.3). |
 | D6 | ~~No hay tests ni CI~~ (resuelto en Fase 2). Falta linter. Hay 171 warnings de nullability. |
 
 ### 4.4 Limitaciones conocidas (decididas o pendientes de producto)
@@ -208,7 +208,7 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 |---|---|---|---|
 | ✅ 4.1 | Dividir `SistemasController` (hecho: 1.452 → 148 líneas; ConsolaSql/, Exportacion/, Herramientas/ y controllers de generación) en `SistemasController`, `ConsolaSqlController`, `ExportacionController` y `HerramientasController`, con las mismas rutas | M | Ningún controller pasa de 300 líneas |
 | ✅ 4.2 | Dividir `SistemaEditor.vue` en un componente por pestaña (hecho: 3.571 → 122 líneas + 7 componentes ≤ 460; lógica en `useSistemaEditor.js`, que todavía se puede partir por pestaña) | M | Ningún `.vue` pasa de 800 líneas |
-| 4.3 | Gestores inyectables (DI + `DbContext` por request) | L | Los gestores se pueden testear con dependencias falsas |
+| ✅ 4.3 | Gestores inyectables (hecho: 17 gestores registrados en `Comun/Inyeccion.cs`, contexto por operación con `IDbContextFactory`) | L | Los gestores se pueden testear con dependencias falsas |
 | 4.4 | Generador de backend con archivos de plantilla (Scriban o similar) en vez de strings en C# | L | Las plantillas son archivos `.cs` legibles |
 | 4.5 | Reducir la duplicación entre `frontend` y `frontend-runtime` | M | Un cambio de layout se hace en un solo lugar |
 

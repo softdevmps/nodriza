@@ -7,11 +7,22 @@ using Backend.Modulos.Sistemas.GeneradorFrontend.Modelos;
 
 namespace Backend.Modulos.Sistemas.GeneradorFrontend
 {
-    public static class SistemasFrontendGenerator
+    public class SistemasFrontendGenerator
     {
-        public static FrontendGenerateResult Generar(int systemId, string frontendSource, string outputRoot, bool overwrite)
+        private readonly BackendConfigGestor _backendConfigGestor;
+        private readonly FrontendConfigGestor _frontendConfigGestor;
+        private readonly SistemasGestor _sistemasGestor;
+
+        public SistemasFrontendGenerator(BackendConfigGestor backendConfigGestor, FrontendConfigGestor frontendConfigGestor, SistemasGestor sistemasGestor)
         {
-            var system = SistemasGestor.ObtenerPorId(systemId);
+            _backendConfigGestor = backendConfigGestor;
+            _frontendConfigGestor = frontendConfigGestor;
+            _sistemasGestor = sistemasGestor;
+        }
+
+        public FrontendGenerateResult Generar(int systemId, string frontendSource, string outputRoot, bool overwrite)
+        {
+            var system = _sistemasGestor.ObtenerPorId(systemId);
             if (system == null)
             {
                 return new FrontendGenerateResult
@@ -64,9 +75,9 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             };
         }
 
-        private static void UpdateAxiosBaseUrl(string frontendPath, int systemId)
+        private void UpdateAxiosBaseUrl(string frontendPath, int systemId)
         {
-            var config = BackendConfigGestor.ObtenerPorSistema(systemId);
+            var config = _backendConfigGestor.ObtenerPorSistema(systemId);
             var apiBase = config.System?.ApiBase ?? "api/v1";
             apiBase = apiBase.Trim('/');
             if (string.IsNullOrWhiteSpace(apiBase))
@@ -84,9 +95,9 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             File.WriteAllText(axiosPath, updated, new UTF8Encoding(false));
         }
 
-        private static void WriteFrontendConfig(string frontendPath, int systemId)
+        private void WriteFrontendConfig(string frontendPath, int systemId)
         {
-            var config = FrontendConfigGestor.ObtenerPorSistema(systemId);
+            var config = _frontendConfigGestor.ObtenerPorSistema(systemId);
             var configDir = Path.Combine(frontendPath, "src", "comun", "config");
             Directory.CreateDirectory(configDir);
 
@@ -102,7 +113,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             File.WriteAllText(path, json, new UTF8Encoding(false));
         }
 
-        private static void CopyDirectory(string sourceDir, string targetDir, HashSet<string> excludedDirectories, HashSet<string> excludedFiles)
+        private void CopyDirectory(string sourceDir, string targetDir, HashSet<string> excludedDirectories, HashSet<string> excludedFiles)
         {
             Directory.CreateDirectory(targetDir);
 
@@ -127,7 +138,7 @@ namespace Backend.Modulos.Sistemas.GeneradorFrontend
             }
         }
 
-        private static void DeleteIfExists(string path)
+        private void DeleteIfExists(string path)
         {
             if (File.Exists(path))
                 File.Delete(path);

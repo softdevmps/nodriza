@@ -20,17 +20,24 @@ namespace Backend.Modulos.Sistemas.Herramientas
     /// - Frontend: `npm run dev` en systems/&lt;slug&gt;/frontend (antes `npm install` si hace falta).
     /// Lleva el registro de los procesos levantados y su salida (ver LogsProcesos).
     /// </summary>
-    public static class ProcesosSistemas
+    public class ProcesosSistemas
     {
+        private readonly BackendConfigGestor _backendConfigGestor;
+
+        public ProcesosSistemas(BackendConfigGestor backendConfigGestor)
+        {
+            _backendConfigGestor = backendConfigGestor;
+        }
+
         private static readonly ConcurrentDictionary<(Componente, int), Process> Procesos = new();
         private static readonly HttpClient Http = new();
 
-        private static string Nombre(Componente c) => c == Componente.Backend ? "backend" : "frontend";
+        private string Nombre(Componente c) => c == Componente.Backend ? "backend" : "frontend";
 
-        public static int Puerto(Componente c, int systemId) =>
+        public int Puerto(Componente c, int systemId) =>
             c == Componente.Backend ? PuertosSistemas.Backend(systemId) : PuertosSistemas.Frontend(systemId);
 
-        public static async Task<ResultadoProceso> IniciarAsync(Componente componente, int systemId, string carpeta)
+        public async Task<ResultadoProceso> IniciarAsync(Componente componente, int systemId, string carpeta)
         {
             var nombre = Nombre(componente);
             if (!Directory.Exists(carpeta))
@@ -98,7 +105,7 @@ namespace Backend.Modulos.Sistemas.Herramientas
                 componente == Componente.Frontend ? puerto : null);
         }
 
-        public static ResultadoProceso Detener(Componente componente, int systemId)
+        public ResultadoProceso Detener(Componente componente, int systemId)
         {
             var nombre = Nombre(componente);
             if (!Procesos.TryGetValue((componente, systemId), out var proceso) || proceso.HasExited)
@@ -124,7 +131,7 @@ namespace Backend.Modulos.Sistemas.Herramientas
             return new(true, "stopped", componente == Componente.Backend ? "Backend detenido." : "Frontend detenido.");
         }
 
-        public static async Task<bool> EstaOnlineAsync(Componente componente, int systemId)
+        public async Task<bool> EstaOnlineAsync(Componente componente, int systemId)
         {
             try
             {
@@ -142,7 +149,7 @@ namespace Backend.Modulos.Sistemas.Herramientas
         }
 
         /// <summary>Corre un comando y espera a que termine (con límite de tiempo).</summary>
-        public static (bool Ok, string Output, string Error) EjecutarComando(string archivo, string argumentos, string carpeta, TimeSpan limite)
+        public (bool Ok, string Output, string Error) EjecutarComando(string archivo, string argumentos, string carpeta, TimeSpan limite)
         {
             try
             {
@@ -175,10 +182,10 @@ namespace Backend.Modulos.Sistemas.Herramientas
             }
         }
 
-        public static (bool Ok, string Output, string Error) DotnetRestore(string carpeta) =>
+        public (bool Ok, string Output, string Error) DotnetRestore(string carpeta) =>
             EjecutarComando("dotnet", "restore", carpeta, TimeSpan.FromMinutes(2));
 
-        private static string? PrepararBackend(string carpeta, LogBuffer log)
+        private string? PrepararBackend(string carpeta, LogBuffer log)
         {
             var restore = DotnetRestore(carpeta);
             if (!restore.Ok)
@@ -190,7 +197,7 @@ namespace Backend.Modulos.Sistemas.Herramientas
             return null;
         }
 
-        private static string? PrepararFrontend(string carpeta, LogBuffer log)
+        private string? PrepararFrontend(string carpeta, LogBuffer log)
         {
             var nodeModules = Path.Combine(carpeta, "node_modules");
             if (!NecesitaNpmInstall(carpeta, nodeModules))
@@ -210,16 +217,16 @@ namespace Backend.Modulos.Sistemas.Herramientas
             return null;
         }
 
-        private static bool NecesitaNpmInstall(string carpeta, string nodeModules)
+        private bool NecesitaNpmInstall(string carpeta, string nodeModules)
         {
             var bin = Path.Combine(nodeModules, ".bin");
             var tieneVite = new[] { "vite", "vite.cmd", "vite.ps1" }.Any(f => File.Exists(Path.Combine(bin, f)));
             return !tieneVite || !File.Exists(Path.Combine(carpeta, "package.json"));
         }
 
-        private static string ApiBase(int systemId)
+        private string ApiBase(int systemId)
         {
-            var apiBase = BackendConfigGestor.ObtenerPorSistema(systemId)?.System?.ApiBase;
+            var apiBase = _backendConfigGestor.ObtenerPorSistema(systemId)?.System?.ApiBase;
             return (string.IsNullOrWhiteSpace(apiBase) ? "api/v1" : apiBase.Trim()).Trim('/');
         }
     }

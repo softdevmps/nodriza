@@ -10,10 +10,14 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
     [Authorize(Policy = Politicas.Admin)]
     public class ConsolaSqlController : AppController
     {
+        private readonly ConsolaSqlGestor _consolaSqlGestor;
+        private readonly SistemasGestor _sistemasGestor;
         private readonly IWebHostEnvironment _env;
 
-        public ConsolaSqlController(IWebHostEnvironment env)
+        public ConsolaSqlController(IWebHostEnvironment env, ConsolaSqlGestor consolaSqlGestor, SistemasGestor sistemasGestor)
         {
+            _consolaSqlGestor = consolaSqlGestor;
+            _sistemasGestor = sistemasGestor;
             _env = env;
         }
 
@@ -26,11 +30,11 @@ namespace Backend.Modulos.Sistemas.ConsolaSql
             if (!ModelState.IsValid)
                 return BadRequest(new { message = "Script SQL invalido." });
 
-            var sistema = SistemasGestor.ObtenerPorId(id);
+            var sistema = _sistemasGestor.ObtenerPorId(id);
             if (sistema == null)
                 return NotFound();
 
-            var (ok, error, resultado) = ConsolaSqlGestor.Ejecutar(id, sistema.Slug, request.Script, request.ImportMetadata);
+            var (ok, error, resultado) = _consolaSqlGestor.Ejecutar(id, sistema.Slug, request.Script, request.ImportMetadata);
             return ok ? Ok(resultado) : BadRequest(new { message = error });
         }
     }

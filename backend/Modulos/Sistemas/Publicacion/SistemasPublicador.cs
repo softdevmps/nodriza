@@ -7,11 +7,18 @@ using Backend.Modulos.Sistemas.Publicacion.Modelos;
 
 namespace Backend.Modulos.Sistemas.Publicacion
 {
-    public static class SistemasPublicador
+    public class SistemasPublicador
     {
-        public static PublicarResult Publicar(int systemId)
+        private readonly IDbContextFactory<SystemBaseContext> _contextos;
+
+        public SistemasPublicador(IDbContextFactory<SystemBaseContext> contextos)
         {
-            using var context = new SystemBaseContext();
+            _contextos = contextos;
+        }
+
+        public PublicarResult Publicar(int systemId)
+        {
+            using var context = _contextos.CreateDbContext();
 
             var system = context.Systems
                 .Include(s => s.Entities)
@@ -161,7 +168,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
             }
         }
 
-        private static PublicarResult Rechazar(SystemBaseContext context, Systems system, List<string> errores)
+        private PublicarResult Rechazar(SystemBaseContext context, Systems system, List<string> errores)
         {
             RegistrarBuildFallido(context, system, string.Join("\n", errores));
             return new PublicarResult
@@ -171,7 +178,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
             };
         }
 
-        private static int RegistrarBuildFallido(SystemBaseContext context, Systems system, string log)
+        private int RegistrarBuildFallido(SystemBaseContext context, Systems system, string log)
         {
             var build = new SystemBuilds
             {
@@ -188,7 +195,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
         }
 
         /// <summary>Relaciones publicables: tipo soportado, FK existente y del mismo tipo que la PK destino.</summary>
-        private static List<string> ValidarRelaciones(Systems system)
+        private List<string> ValidarRelaciones(Systems system)
         {
             var errores = new List<string>();
             var entidades = system.Entities.ToDictionary(e => e.Id);
@@ -225,7 +232,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
         public static readonly HashSet<string> RelacionesSoportadas = new(StringComparer.OrdinalIgnoreCase) { "ManyToOne", "OneToOne" };
 
         /// <summary>Crea el schema y las tablas que todavía no existen. Las existentes las ajusta MigracionEsquema.</summary>
-        private static string BuildScriptTablas(string schemaName, IEnumerable<Entities> entities)
+        private string BuildScriptTablas(string schemaName, IEnumerable<Entities> entities)
         {
             var sb = new StringBuilder();
 
@@ -276,7 +283,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
         /// Índices únicos que falten. Si la columna acepta NULL, el índice es filtrado
         /// (varios registros sin valor no cuentan como duplicados).
         /// </summary>
-        private static string BuildScriptIndices(string schemaName, IEnumerable<Entities> entities)
+        private string BuildScriptIndices(string schemaName, IEnumerable<Entities> entities)
         {
             var sb = new StringBuilder();
             foreach (var entity in entities)
@@ -294,7 +301,7 @@ namespace Backend.Modulos.Sistemas.Publicacion
             return sb.ToString();
         }
 
-        private static void AplicarRelaciones(SystemBaseContext context, string schemaName, Systems system)
+        private void AplicarRelaciones(SystemBaseContext context, string schemaName, Systems system)
         {
             if (system.Relations.Count == 0)
                 return;
@@ -348,7 +355,7 @@ END";
             }
         }
 
-        private static void CrearMenusSistema(SystemBaseContext context, Systems system)
+        private void CrearMenusSistema(SystemBaseContext context, Systems system)
         {
             foreach (var entity in system.Entities)
             {
@@ -376,7 +383,7 @@ END";
             }
         }
 
-        private static void CrearPermisosSistema(SystemBaseContext context, Systems system)
+        private void CrearPermisosSistema(SystemBaseContext context, Systems system)
         {
             foreach (var entity in system.Entities)
             {
@@ -401,7 +408,7 @@ END";
             }
         }
 
-        private static void AsignarPermisosAdmin(SystemBaseContext context, int systemId)
+        private void AsignarPermisosAdmin(SystemBaseContext context, int systemId)
         {
             var adminRole = context.Roles
                 .Include(r => r.Permission)
@@ -430,7 +437,7 @@ END";
         /// <summary>Ruta del menú runtime de una entidad (la misma al crearlo y al borrarlo).</summary>
         public static string RutaMenu(string slug, string nombreEntidad) => $"/s/{slug}/{Texto.ToKebab(nombreEntidad)}";
 
-        private static string ActionLabel(string action)
+        private string ActionLabel(string action)
         {
             return action switch
             {
