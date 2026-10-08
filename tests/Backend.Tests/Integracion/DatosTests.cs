@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Backend.Tests.Infra;
 using static Backend.Tests.Infra.Constructores;
 
@@ -89,6 +90,68 @@ namespace Backend.Tests.Integracion
             var comun = await UsuarioComunAsync(_e);
             var r = await comun.GetAsync(_s.Datos("Fichas"));
             Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+        }
+
+        // ---- Listado del lado del servidor (Fase 3.4) ----
+
+        private async Task CargarFichas(params (string Clave, decimal Saldo)[] fichas)
+        {
+            foreach (var (clave, saldo) in fichas)
+                await EsperarOk(await _e.Admin.PostAsJsonAsync(_s.Datos("Fichas"), new { Clave = clave, Saldo = saldo }), "alta");
+        }
+
+        private async Task<(List<string> Claves, int Total)> Listar(string query)
+        {
+            var r = await _e.Admin.GetAsync(_s.Datos("Fichas") + query);
+            await EsperarOk(r, "listar");
+            var filas = await r.Content.ReadFromJsonAsync<List<JsonElement>>();
+            var total = int.Parse(r.Headers.GetValues("X-Total-Count").Single());
+            return (filas!.Select(f => f.GetProperty("Clave").GetString()!).ToList(), total);
+        }
+
+        [Fact]
+        public async Task Pagina_en_el_servidor_y_devuelve_el_total()
+        {
+            await CargarFichas(("A1", 1), ("A2", 2), ("A3", 3), ("A4", 4), ("A5", 5), ("A6", 6), ("A7", 7));
+
+            var (claves, total) = await Listar("?take=3&skip=3");
+
+            Assert.Equal(new[] { "A4", "A5", "A6" }, claves);
+            Assert.Equal(7, total);
+        }
+
+        [Fact]
+        public async Task Busca_en_el_servidor_y_los_comodines_de_LIKE_son_literales()
+        {
+            await CargarFichas(("50%off", 1), ("500", 2), ("x_y", 3), ("xay", 4));
+
+            Assert.Equal(new[] { "50%off" }, (await Listar("?buscar=" + Uri.EscapeDataString("50%"))).Claves);
+            Assert.Equal(new[] { "x_y" }, (await Listar("?buscar=x_y")).Claves);
+            var inyeccion = await Listar("?buscar=" + Uri.EscapeDataString("' OR 1=1 --"));
+            Assert.Empty(inyeccion.Claves);
+            Assert.Equal(0, inyeccion.Total);
+        }
+
+        [Fact]
+        public async Task Filtra_por_campo_y_ordena_en_el_servidor()
+        {
+            await CargarFichas(("B1", 30), ("C1", 10), ("B2", 20), ("B3", 10));
+
+            var (claves, total) = await Listar("?filtroCampo=Clave&filtroValor=b&ordenarPor=Saldo&orden=desc&take=2");
+
+            Assert.Equal(new[] { "B1", "B2" }, claves);
+            Assert.Equal(3, total);
+        }
+
+        [Theory]
+        [InlineData("?ordenarPor=" + "Clave%5D%3B%20DROP%20TABLE%20dbo.Usuarios%3B--")]
+        [InlineData("?filtroCampo=NoExiste&filtroValor=x")]
+        public async Task Un_campo_inventado_para_filtrar_u_ordenar_responde_400(string query)
+        {
+            var r = await _e.Admin.GetAsync(_s.Datos("Fichas") + query);
+
+            Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+            Assert.NotNull(await _e.EscalarAsync("SELECT OBJECT_ID('dbo.Usuarios', 'U')"));
         }
     }
 }

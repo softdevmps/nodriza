@@ -48,7 +48,7 @@ builder.Services.AddCors(options =>
                 Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback)
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .WithExposedHeaders("Content-Disposition");
+            .WithExposedHeaders("Content-Disposition", "X-Total-Count");
     });
 });
 

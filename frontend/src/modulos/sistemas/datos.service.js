@@ -1,9 +1,11 @@
 import api from '../../comun/api/axios';
 
 export default {
-  listar(systemId, entityId, take) {
+  // consulta (opcional): { take, skip, buscar, filtroCampo, filtroValor, ordenarPor, orden }.
+  // El total sin paginar viene en el header X-Total-Count.
+  listar(systemId, entityId, consulta) {
     return api.get(`/sistemas/${systemId}/entidades/${entityId}/datos`, {
-      params: take ? { take } : undefined
+      params: consulta
     });
   },
 

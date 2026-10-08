@@ -114,6 +114,8 @@
             :fixed-header="listStickyHeader"
             :height="listStickyHeader ? 420 : undefined"
             :no-data-text="entityMessages.empty"
+            :items-per-page="-1"
+            hide-default-footer
             hover
           >
             <template #item="{ item, columns }">
@@ -193,7 +195,7 @@
           </v-data-table>
 
           <div v-if="listShowTotals" class="px-4 pt-2 text-caption text-medium-emphasis">
-            Total: {{ sortedRegistros.length }} registros
+            Total: {{ total }} registros
           </div>
 
           <v-row class="px-4 pb-4 pt-2 align-center" dense>
@@ -261,7 +263,8 @@ const sistema = ref(null)
 const entidades = ref([])
 const entidadSeleccionada = ref(null)
 const campos = ref([])
-const registros = ref([])
+const registros = ref([]) // solo la página actual (el servidor pagina)
+const total = ref(0)
 const loading = ref(false)
 const error = ref(null)
 const relaciones = ref([])
@@ -479,69 +482,11 @@ const defaultSortDirection = computed(() => {
   return dir.toLowerCase() === 'desc' ? 'desc' : 'asc'
 })
 
-const filteredRegistros = computed(() => {
-  let items = [...(registros.value || [])]
-
-  if (search.value) {
-    const term = search.value.toString().toLowerCase()
-    items = items.filter(row =>
-      Object.values(row).some(value =>
-        value !== null &&
-        value !== undefined &&
-        value.toString().toLowerCase().includes(term)
-      )
-    )
-  }
-
-  if (filterField.value && filterValue.value) {
-    const term = filterValue.value.toString().toLowerCase()
-    items = items.filter(row => {
-      const value = row[filterField.value]
-      return value !== null && value !== undefined && value.toString().toLowerCase().includes(term)
-    })
-  }
-
-  return items
-})
-
-const sortedRegistros = computed(() => {
-  const items = [...filteredRegistros.value]
-  if (!defaultSortField.value) return items
-
-  const key = defaultSortField.value.columnName
-  const dir = defaultSortDirection.value === 'desc' ? -1 : 1
-
-  items.sort((a, b) => {
-    const va = a?.[key]
-    const vb = b?.[key]
-    if (va == null && vb == null) return 0
-    if (va == null) return -1 * dir
-    if (vb == null) return 1 * dir
-
-    if (typeof va === 'number' && typeof vb === 'number') {
-      return (va - vb) * dir
-    }
-
-    const sa = va.toString().toLowerCase()
-    const sb = vb.toString().toLowerCase()
-    if (sa < sb) return -1 * dir
-    if (sa > sb) return 1 * dir
-    return 0
-  })
-
-  return items
-})
-
 const pageCount = computed(() => {
-  const total = sortedRegistros.value.length
-  return total === 0 ? 1 : Math.ceil(total / itemsPerPage.value)
+  return total.value === 0 ? 1 : Math.ceil(total.value / itemsPerPage.value)
 })
 
-const paginatedRegistros = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return sortedRegistros.value.slice(start, end)
-})
+const paginatedRegistros = computed(() => registros.value)
 
 const pkField = computed(() => campos.value.find(field => field.isPrimaryKey))
 
@@ -658,12 +603,29 @@ async function cargarCampos() {
   campos.value = data
 }
 
+// Pide al servidor solo la página visible, con búsqueda, filtro y orden aplicados allá
+let ultimaConsulta = 0
 async function cargarDatos() {
   if (!sistema.value || !entidadSeleccionada.value) return
+  const consulta = ++ultimaConsulta
   try {
-    const { data } = await datosService.listar(sistema.value.id, entidadSeleccionada.value.id)
-    registros.value = data
-    page.value = 1
+    const response = await datosService.listar(sistema.value.id, entidadSeleccionada.value.id, {
+      take: itemsPerPage.value,
+      skip: (page.value - 1) * itemsPerPage.value,
+      buscar: search.value || undefined,
+      filtroCampo: filterField.value && filterValue.value ? filterField.value : undefined,
+      filtroValor: filterField.value && filterValue.value ? filterValue.value : undefined,
+      ordenarPor: defaultSortField.value?.columnName,
+      orden: defaultSortField.value ? defaultSortDirection.value : undefined
+    })
+    if (consulta !== ultimaConsulta) return // llegó tarde: ya se pidió otra página o búsqueda
+    registros.value = response.data
+    total.value = Number(response.headers?.['x-total-count'] ?? response.data.length)
+    // Si se borró el último registro de la última página, volver a la anterior
+    if (page.value > pageCount.value) {
+      page.value = pageCount.value
+      return
+    }
     error.value = null
   } catch (err) {
     error.value =
@@ -799,6 +761,10 @@ async function cargarFkOptions() {
 async function inicializar() {
   loading.value = true
   error.value = null
+  search.value = ''
+  filterField.value = null
+  filterValue.value = ''
+  page.value = 1
   try {
     await cargarSistema()
     await cargarEntidades()
@@ -806,11 +772,11 @@ async function inicializar() {
     await cargarFrontendConfig()
     resolverEntidad()
     await cargarCampos()
-    await cargarDatos()
-    await cargarFkOptions()
     if (frontendConfig.value?.system?.defaultItemsPerPage) {
       itemsPerPage.value = frontendConfig.value.system.defaultItemsPerPage
     }
+    await cargarDatos()
+    await cargarFkOptions()
   } catch (err) {
     error.value =
       err?.response?.data?.message ||
@@ -904,14 +870,21 @@ function volver() {
   router.push('/sistemas')
 }
 
-watch([search, filterField, filterValue, itemsPerPage], () => {
-  page.value = 1
-})
+// Al cambiar búsqueda o filtros se vuelve a la página 1. Los textos esperan a que se deje de tipear.
+let esperaBusqueda = null
+function recargarDesdePrimera(demora = 0) {
+  if (loading.value) return // inicializar() ya carga los datos
+  clearTimeout(esperaBusqueda)
+  esperaBusqueda = setTimeout(() => {
+    if (page.value !== 1) page.value = 1 // el watch de page recarga
+    else cargarDatos()
+  }, demora)
+}
 
-watch(sortedRegistros, () => {
-  if (page.value > pageCount.value) {
-    page.value = pageCount.value
-  }
+watch([search, filterValue], () => recargarDesdePrimera(300))
+watch([filterField, itemsPerPage], () => recargarDesdePrimera())
+watch(page, () => {
+  if (!loading.value) cargarDatos()
 })
 
 watch(

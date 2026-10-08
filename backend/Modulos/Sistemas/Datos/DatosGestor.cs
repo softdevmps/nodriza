@@ -38,45 +38,83 @@ namespace Backend.Modulos.Sistemas.Datos
             "active"
         };
 
-        public (bool Ok, string? Error, List<Dictionary<string, object?>> Data, bool SinPermiso) Listar(int systemId, int entityId, int? take, int? skip, int usuarioId)
+        /// <summary>
+        /// Lista los registros de una entidad. Búsqueda, filtro, orden y paginación se resuelven en SQL;
+        /// Total es la cantidad que cumple búsqueda y filtro (sin paginar). Sin Take devuelve todo.
+        /// </summary>
+        public (bool Ok, string? Error, List<Dictionary<string, object?>> Data, int Total, bool SinPermiso) Listar(int systemId, int entityId, ConsultaDatos consulta, int usuarioId)
         {
             using var context = _contextos.CreateDbContext();
+            var vacio = new List<Dictionary<string, object?>>();
 
             var meta = LoadMetadata(context, systemId, entityId);
             if (!meta.Ok)
-                return (false, meta.Error, new List<Dictionary<string, object?>>(), false);
+                return (false, meta.Error, vacio, 0, false);
 
             if (!PermisosGestor.UsuarioTienePermiso(context, usuarioId, systemId, entityId, "view"))
-                return (false, "Sin permisos para ver.", new List<Dictionary<string, object?>>(), true);
+                return (false, "Sin permisos para ver.", vacio, 0, true);
 
             var schemaName = meta.SchemaName;
             var entity = meta.Entity;
             var fields = meta.Fields;
             var pk = meta.Pk;
 
-            var columns = fields.Select(f => $"[{f.ColumnName}]");
-            var softDeleteField = GetSoftDeleteField(fields);
-            var sql = new StringBuilder();
-            sql.Append($"SELECT {string.Join(", ", columns)} FROM [{schemaName}].[{entity.TableName}]");
-            if (softDeleteField != null)
-            {
-                sql.Append($" WHERE [{softDeleteField.ColumnName}] = 1");
-            }
-            var desde = Math.Max(0, skip ?? 0);
-            if ((take.HasValue && take.Value > 0) || desde > 0)
-            {
-                var pkColumn = pk?.ColumnName ?? fields.First().ColumnName;
-                sql.Append($" ORDER BY [{pkColumn}] OFFSET {desde} ROWS");
-                if (take.HasValue && take.Value > 0)
-                    sql.Append($" FETCH NEXT {take.Value} ROWS ONLY");
-            }
+            // Los nombres de columna que llegan por query solo se aceptan si son campos de la entidad
+            Fields? Campo(string? nombre) => string.IsNullOrWhiteSpace(nombre)
+                ? null
+                : fields.FirstOrDefault(f => f.ColumnName.Equals(nombre.Trim(), StringComparison.OrdinalIgnoreCase));
 
-            var result = new List<Dictionary<string, object?>>();
+            var filtroCampo = Campo(consulta.FiltroCampo);
+            if (!string.IsNullOrWhiteSpace(consulta.FiltroCampo) && filtroCampo == null)
+                return (false, $"No existe el campo '{consulta.FiltroCampo}' para filtrar.", vacio, 0, false);
+
+            var ordenarPor = Campo(consulta.OrdenarPor);
+            if (!string.IsNullOrWhiteSpace(consulta.OrdenarPor) && ordenarPor == null)
+                return (false, $"No existe el campo '{consulta.OrdenarPor}' para ordenar.", vacio, 0, false);
 
             var conn = AbrirConexion(context);
             using var cmd = conn.CreateCommand();
+
+            var condiciones = new List<string>();
+            var softDeleteField = GetSoftDeleteField(fields);
+            if (softDeleteField != null)
+                condiciones.Add($"[{softDeleteField.ColumnName}] = 1");
+
+            if (!string.IsNullOrWhiteSpace(consulta.Buscar))
+            {
+                condiciones.Add("(" + string.Join(" OR ", fields.Select(f => $"{ComoTexto(f)} LIKE @buscar")) + ")");
+                AgregarParametro(cmd, "@buscar", PatronContiene(consulta.Buscar));
+            }
+
+            if (filtroCampo != null && !string.IsNullOrWhiteSpace(consulta.FiltroValor))
+            {
+                condiciones.Add($"{ComoTexto(filtroCampo)} LIKE @filtro");
+                AgregarParametro(cmd, "@filtro", PatronContiene(consulta.FiltroValor));
+            }
+
+            var desde = $"FROM [{schemaName}].[{entity.TableName}]" +
+                        (condiciones.Count > 0 ? " WHERE " + string.Join(" AND ", condiciones) : string.Empty);
+
+            cmd.CommandText = $"SELECT COUNT(*) {desde}";
+            var total = Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+
+            var pkColumn = pk?.ColumnName ?? fields.First().ColumnName;
+            var direccion = string.Equals(consulta.Orden, "desc", StringComparison.OrdinalIgnoreCase) ? "DESC" : "ASC";
+            var orden = ordenarPor != null && !ordenarPor.ColumnName.Equals(pkColumn, StringComparison.OrdinalIgnoreCase)
+                ? $"[{ordenarPor.ColumnName}] {direccion}, [{pkColumn}]" // desempate estable entre páginas
+                : $"[{pkColumn}] {(ordenarPor != null ? direccion : "ASC")}";
+
+            var sql = new StringBuilder($"SELECT {string.Join(", ", fields.Select(f => $"[{f.ColumnName}]"))} {desde} ORDER BY {orden}");
+            var saltear = Math.Max(0, consulta.Skip ?? 0);
+            if (consulta.Take is > 0 || saltear > 0)
+            {
+                sql.Append($" OFFSET {saltear} ROWS");
+                if (consulta.Take is > 0)
+                    sql.Append($" FETCH NEXT {consulta.Take.Value} ROWS ONLY");
+            }
             cmd.CommandText = sql.ToString();
 
+            var result = new List<Dictionary<string, object?>>();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -90,7 +128,25 @@ namespace Backend.Modulos.Sistemas.Datos
                 result.Add(row);
             }
 
-            return (true, null, result, false);
+            return (true, null, result, total, false);
+        }
+
+        /// <summary>La columna como texto para buscar con LIKE (las fechas en ISO, como las ve la pantalla).</summary>
+        private static string ComoTexto(Fields field) =>
+            field.DataType.Equals("datetime", StringComparison.OrdinalIgnoreCase)
+                ? $"CONVERT(NVARCHAR(33), [{field.ColumnName}], 126)"
+                : $"CAST([{field.ColumnName}] AS NVARCHAR(MAX))";
+
+        /// <summary>"%texto%" con los comodines de LIKE escapados: buscar "50%" busca eso literal.</summary>
+        private static string PatronContiene(string texto) =>
+            "%" + texto.Trim().Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]") + "%";
+
+        private static void AgregarParametro(DbCommand cmd, string nombre, object valor)
+        {
+            var p = cmd.CreateParameter();
+            p.ParameterName = nombre;
+            p.Value = valor;
+            cmd.Parameters.Add(p);
         }
 
         public (bool Ok, string? Error, bool SinPermiso) Crear(int systemId, int entityId, Dictionary<string, JsonElement> data, int usuarioId)

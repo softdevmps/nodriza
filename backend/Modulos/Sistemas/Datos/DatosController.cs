@@ -18,14 +18,19 @@ namespace Backend.Modulos.Sistemas.Datos
         }
 
         [HttpGet(Routes.v1.Datos.Obtener)]
-        public IActionResult Obtener(int systemId, int entityId, [FromQuery] int? take, [FromQuery] int? skip)
+        public IActionResult Obtener(int systemId, int entityId, [FromQuery] ConsultaDatos consulta)
         {
             var usuario = UsuarioToken();
             if (usuario.UsuarioId == 0)
                 return Unauthorized();
 
-            var result = _datosGestor.Listar(systemId, entityId, take, skip, usuario.UsuarioId);
-            return result.Ok ? Ok(result.Data) : Fallo(result.Error, result.SinPermiso);
+            var result = _datosGestor.Listar(systemId, entityId, consulta, usuario.UsuarioId);
+            if (!result.Ok)
+                return Fallo(result.Error, result.SinPermiso);
+
+            // El cuerpo sigue siendo la lista; el total (para paginar) va en un header
+            Response.Headers["X-Total-Count"] = result.Total.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return Ok(result.Data);
         }
 
         [HttpPost(Routes.v1.Datos.Crear)]
