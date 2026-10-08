@@ -119,6 +119,15 @@ namespace Backend.Modulos.Sistemas
             return Ok(new { schemaArchivado = result.SchemaArchivado, carpetaArchivada });
         }
 
+        /// <summary>Qué cambiaría al publicar (solo lee). La UI lo muestra para confirmar.</summary>
+        [Authorize(Policy = Politicas.Admin)]
+        [HttpGet(Routes.v1.Sistemas.PreviewPublicar)]
+        public IActionResult PreviewPublicar(int id)
+        {
+            var preview = _sistemasPublicador.Previsualizar(id);
+            return preview.Message != null ? BadRequest(preview) : Ok(preview);
+        }
+
         [Authorize(Policy = Politicas.Admin)]
         [HttpPost(Routes.v1.Sistemas.Publicar)]
         public IActionResult Publicar(int id)

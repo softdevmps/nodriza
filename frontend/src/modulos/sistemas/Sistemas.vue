@@ -119,6 +119,9 @@
     </v-card>
 
     <SistemaDialog v-model="mostrarDialog" :sistema="sistemaSeleccionado" @guardado="cargarSistemas" />
+
+    <PublicarDialog v-model="mostrarPublicar" :sistema-id="sistemaAPublicar?.id" :nombre="sistemaAPublicar?.name"
+      @publicado="alPublicar" />
   </v-container>
 </template>
 
@@ -127,6 +130,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import sistemaService from './sistema.service.js'
 import SistemaDialog from './componentes/SistemaDialog.vue'
+import PublicarDialog from './componentes/PublicarDialog.vue'
 import { useMenuStore } from '../../comun/store/menu.store.js'
 import usuarioService from '../usuarios/usuario.service.js'
 
@@ -210,21 +214,18 @@ function disenar(item) {
   router.push(`/sistemas/${item.id}`)
 }
 
-async function publicar(item) {
-  const ok = window.confirm(`Publicar sistema ${item.name}?`)
-  if (!ok) return
+// Publicar abre un diálogo con lo que cambia en la base y pide confirmación
+const mostrarPublicar = ref(false)
+const sistemaAPublicar = ref(null)
 
-  try {
-    await sistemaService.publicar(item.id)
-    await cargarSistemas()
-    await cargarMenuTree()
-  } catch (error) {
-    const message =
-      error?.response?.data?.message ||
-      error?.response?.data?.Message ||
-      'Error al publicar el sistema.'
-    window.alert(message)
-  }
+function publicar(item) {
+  sistemaAPublicar.value = item
+  mostrarPublicar.value = true
+}
+
+async function alPublicar() {
+  await cargarSistemas()
+  await cargarMenuTree()
 }
 
 async function eliminarSistema(item) {

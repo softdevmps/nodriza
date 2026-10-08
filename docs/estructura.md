@@ -42,7 +42,8 @@ backend/
         ├── Campos/             Campos de cada entidad (columnas)
         ├── Relaciones/         FKs entre entidades
         ├── Datos/              CRUD genérico sobre las tablas publicadas (/s/<slug>)
-        ├── Publicacion/        "Publicar DB": schema sys_<slug>, migraciones seguras (MigracionEsquema), menús y permisos
+        ├── Publicacion/        "Publicar DB": schema sys_<slug>, migraciones seguras (MigracionEsquema), renombrados
+        │                       (IdentidadEsquema: cada tabla/columna lleva el id de su entidad/campo), preview, menús y permisos
         ├── ConsolaSql/         Consola SQL aislada (ConsolaSqlGestor) y sincronización de metadata (SincronizadorMetadata)
         ├── GeneradorBackend/   Genera systems/<slug>/backend; credenciales SQL propias por sistema (CredencialesSistema)
         │   └── Plantillas/     Archivos fijos del backend generado (Program.cs, auth, .env...) con marcadores {{nombre}}

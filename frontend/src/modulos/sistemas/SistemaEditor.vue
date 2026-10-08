@@ -78,6 +78,9 @@
 
     <RelacionDialog v-model="mostrarRelacionDialog" :relacion="relacionSeleccionada" :entidades="entidades"
       :system-id="systemId" @guardado="cargarRelaciones" />
+
+    <PublicarDialog v-model="mostrarPublicarDialog" :sistema-id="Number(systemId)" :nombre="sistema?.name"
+      @publicado="alPublicar" />
   </v-container>
 </template>
 
@@ -88,6 +91,7 @@ import { provide } from 'vue'
 import EntidadDialog from './componentes/EntidadDialog.vue'
 import CampoDialog from './componentes/CampoDialog.vue'
 import RelacionDialog from './componentes/RelacionDialog.vue'
+import PublicarDialog from './componentes/PublicarDialog.vue'
 import TabDatos from './editor/TabDatos.vue'
 import TabHerramientas from './editor/TabHerramientas.vue'
 import TabFrontend from './editor/TabFrontend.vue'
@@ -108,8 +112,10 @@ const {
   entidadSeleccionada,
   entidadSeleccionadaEdicion,
   entidades,
+  alPublicar,
   mostrarCampoDialog,
   mostrarEntidadDialog,
+  mostrarPublicarDialog,
   mostrarRelacionDialog,
   relacionSeleccionada,
   sistema,

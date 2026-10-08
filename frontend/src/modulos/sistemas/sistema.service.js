@@ -29,6 +29,11 @@ export default {
     return api.post(`/sistemas/${id}/publicar`);
   },
 
+  // Qué cambiaría al publicar, sin aplicar nada (para confirmar antes)
+  previewPublicar(id) {
+    return api.get(`/sistemas/${id}/publicar/preview`);
+  },
+
   exportarZip(id) {
     return api.post(`/sistemas/${id}/export?mode=zip&source=workspace`, null, { responseType: 'blob' });
   },

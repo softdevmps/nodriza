@@ -650,21 +650,16 @@ export function useSistemaEditor () {
     router.push('/sistemas')
   }
 
-  async function publicarSistema() {
-    const ok = window.confirm('Publicar sistema?')
-    if (!ok) return
+  // Publicar abre PublicarDialog (muestra qué cambia en la base y pide confirmación)
+  const mostrarPublicarDialog = ref(false)
 
-    try {
-      await sistemaService.publicar(systemId)
-      await cargarSistema()
-      await cargarMenuTree()
-    } catch (error) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.Message ||
-        'Error al publicar el sistema.'
-      window.alert(message)
-    }
+  function publicarSistema() {
+    mostrarPublicarDialog.value = true
+  }
+
+  async function alPublicar() {
+    await cargarSistema()
+    await cargarMenuTree()
   }
 
   function limpiarSqlConsole() {
@@ -1586,6 +1581,8 @@ export function useSistemaEditor () {
     onFrontendFieldDrop,
     portsFilePath,
     publicarSistema,
+    mostrarPublicarDialog,
+    alPublicar,
     reiniciarBackend,
     reiniciarFrontend,
     relacionSeleccionada,

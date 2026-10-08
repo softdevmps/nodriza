@@ -16,9 +16,16 @@ namespace Backend.Modulos.Sistemas.Publicacion
             _contextos = contextos;
         }
 
-        public PublicarResult Publicar(int systemId)
+        /// <summary>Resultado de validar y calcular la publicación, sin tocar nada.</summary>
+        private sealed record Preparacion(Systems? Sistema, string Schema, MigracionEsquema.Plan? Plan, string? Error, List<string> Errores);
+
+        /// <summary>
+        /// Carga el sistema, lo valida y calcula los cambios sobre la base. Solo lee: la usan Publicar
+        /// y Previsualizar. Error = no se puede ni intentar; Errores = el diseño choca con los datos.
+        /// </summary>
+        private Preparacion Preparar(SystemBaseContext context, int systemId)
         {
-            using var context = _contextos.CreateDbContext();
+            Preparacion Falla(string mensaje) => new(null, string.Empty, null, mensaje, new List<string>());
 
             var system = context.Systems
                 .Include(s => s.Entities)
@@ -27,81 +34,83 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 .FirstOrDefault(s => s.Id == systemId);
 
             if (system == null)
-            {
-                return new PublicarResult
-                {
-                    Ok = false,
-                    Message = "Sistema no encontrado."
-                };
-            }
+                return Falla("Sistema no encontrado.");
 
             if (system.Entities.Count == 0)
-            {
-                return new PublicarResult
-                {
-                    Ok = false,
-                    Message = "El sistema no tiene entidades."
-                };
-            }
+                return Falla("El sistema no tiene entidades.");
 
             var schemaName = NombresSql.EsquemaDeSistema(system.Slug);
             if (schemaName == null)
-            {
-                return new PublicarResult
-                {
-                    Ok = false,
-                    Message = "Slug invalido para crear schema."
-                };
-            }
+                return Falla("Slug invalido para crear schema.");
 
             foreach (var entity in system.Entities)
             {
                 if (entity.Fields.Count == 0)
-                {
-                    return new PublicarResult
-                    {
-                        Ok = false,
-                        Message = $"Entidad sin campos: {entity.Name}"
-                    };
-                }
+                    return Falla($"Entidad sin campos: {entity.Name}");
 
                 if (NombresSql.Normalizar(entity.TableName) == null)
-                {
-                    return new PublicarResult
-                    {
-                        Ok = false,
-                        Message = $"TableName invalido: {entity.TableName}"
-                    };
-                }
+                    return Falla($"TableName invalido: {entity.TableName}");
 
                 foreach (var field in entity.Fields)
                 {
                     if (NombresSql.Normalizar(field.ColumnName) == null)
-                    {
-                        return new PublicarResult
-                        {
-                            Ok = false,
-                            Message = $"ColumnName invalido: {field.ColumnName}"
-                        };
-                    }
+                        return Falla($"ColumnName invalido: {field.ColumnName}");
                 }
             }
 
             var erroresRelaciones = ValidarRelaciones(system);
             if (erroresRelaciones.Count > 0)
-                return Rechazar(context, system, erroresRelaciones);
+                return new(system, schemaName, null, null, erroresRelaciones);
 
             // Cambios sobre tablas ya publicadas: se calculan antes de tocar nada.
             var conn = context.Database.GetDbConnection();
             if (conn.State != System.Data.ConnectionState.Open)
                 conn.Open();
             var plan = MigracionEsquema.Calcular(conn, schemaName, system.Entities);
-            if (plan.Errores.Count > 0)
-                return Rechazar(context, system, plan.Errores);
+            return new(system, schemaName, plan, null, plan.Errores);
+        }
+
+        /// <summary>
+        /// Qué haría Publicar, sin ejecutar nada: tablas nuevas, renombrados, cambios (SQL) sobre
+        /// tablas que ya tienen datos y los errores que impedirían publicar.
+        /// </summary>
+        public PreviewPublicacion Previsualizar(int systemId)
+        {
+            using var context = _contextos.CreateDbContext();
+            var p = Preparar(context, systemId);
+            if (p.Error != null)
+                return new PreviewPublicacion { Ok = false, Message = p.Error };
+
+            return new PreviewPublicacion
+            {
+                Ok = p.Errores.Count == 0,
+                Errores = p.Errores,
+                TablasNuevas = p.Plan?.TablasNuevas ?? new List<string>(),
+                Renombres = p.Plan?.CambiosDeNombre ?? new List<string>(),
+                Cambios = p.Plan == null ? new List<string>() : p.Plan.Renombres.Concat(p.Plan.Sentencias).ToList()
+            };
+        }
+
+        public PublicarResult Publicar(int systemId)
+        {
+            using var context = _contextos.CreateDbContext();
+
+            var p = Preparar(context, systemId);
+            if (p.Error != null)
+                return new PublicarResult { Ok = false, Message = p.Error };
+            if (p.Errores.Count > 0)
+                return Rechazar(context, p.Sistema!, p.Errores);
+
+            var system = p.Sistema!;
+            var schemaName = p.Schema;
+            var plan = p.Plan!;
 
             using var trx = context.Database.BeginTransaction();
             try
             {
+                // Primero los renombrados: así una tabla renombrada no se crea de nuevo vacía
+                foreach (var renombre in plan.Renombres)
+                    context.Database.ExecuteSqlRaw(renombre);
                 context.Database.ExecuteSqlRaw(BuildScriptTablas(schemaName, system.Entities));
                 foreach (var sentencia in plan.Sentencias)
                     context.Database.ExecuteSqlRaw(sentencia);
@@ -110,6 +119,8 @@ namespace Backend.Modulos.Sistemas.Publicacion
                     context.Database.ExecuteSqlRaw(indices);
 
                 AplicarRelaciones(context, schemaName, system);
+                // Cada tabla y columna queda con el id de su entidad/campo (para reconocer renombrados)
+                context.Database.ExecuteSqlRaw(IdentidadEsquema.ScriptEtiquetas(schemaName, system.Entities));
                 CrearMenusSistema(context, system);
                 CrearPermisosSistema(context, system);
                 // AsignarPermisosAdmin consulta la base: los permisos nuevos tienen que estar guardados
@@ -128,8 +139,8 @@ namespace Backend.Modulos.Sistemas.Publicacion
                     Version = system.Version,
                     StartedAt = DateTime.UtcNow,
                     FinishedAt = DateTime.UtcNow,
-                    Log = plan.Sentencias.Count > 0
-                        ? $"Published to schema {schemaName}. Cambios aplicados:\n{string.Join("\n", plan.Sentencias)}"
+                    Log = plan.Sentencias.Count + plan.Renombres.Count > 0
+                        ? $"Published to schema {schemaName}. Cambios aplicados:\n{string.Join("\n", plan.Renombres.Concat(plan.Sentencias))}"
                         : $"Published to schema {schemaName}"
                 };
 
@@ -141,9 +152,9 @@ namespace Backend.Modulos.Sistemas.Publicacion
                 return new PublicarResult
                 {
                     Ok = true,
-                    Message = plan.Sentencias.Count > 0
-                        ? $"Sistema publicado en schema {schemaName}. Se aplicaron {plan.Sentencias.Count} cambios sobre tablas existentes."
-                        : $"Sistema publicado en schema {schemaName}."
+                    Message = $"Sistema publicado en schema {schemaName}." +
+                        (plan.CambiosDeNombre.Count > 0 ? $" Renombrados: {string.Join(", ", plan.CambiosDeNombre)}." : string.Empty) +
+                        (plan.Sentencias.Count > 0 ? $" Se aplicaron {plan.Sentencias.Count} cambios sobre tablas existentes." : string.Empty)
                 };
             }
             catch (PublicacionException ex)

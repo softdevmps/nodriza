@@ -146,7 +146,7 @@ cd frontend && npm install && npm run dev   # entrar con admin/admin
 
 | # | Limitación | Por qué / cómo se maneja |
 |---|---|---|
-| L1 | Renombrar un campo o tabla en el diseño no renombra la columna real: se crea una nueva y la vieja queda (con sus datos) como opcional. | No se pierden datos. Un renombrado automático necesita registrar el nombre anterior: va a Fase 3. |
+| ✅ L1 | ~~Renombrar un campo o tabla creaba una columna/tabla nueva~~: resuelto en Fase 3 (cada tabla y columna publicada lleva el id de su entidad/campo como propiedad extendida y se renombra con `sp_rename`). Las tablas publicadas antes se etiquetan en su próxima publicación; desde ahí se pueden renombrar. | |
 | L2 | Las migraciones no achican, no convierten tipos con pérdida ni borran columnas: esos cambios se rechazan con un mensaje claro. | Decisión: nunca truncar ni perder datos en silencio. |
 | ✅ L3 | ~~El runtime pagina en el navegador~~: resuelto en Fase 3.4. Queda: con paginación, la API generada busca solo en los campos marcados como filtro y no tiene filtro por campo (la pantalla lo oculta). | |
 | L4 | El bloqueo por fuerza bruta vive en memoria. | Alcanza con una instancia; con varias habría que moverlo a un store compartido. |
@@ -191,11 +191,11 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 | ✅ 2.2 | CI en GitHub Actions (`.github/workflows/ci.yml`): build y tests del backend con SQL Server efímero, build y `npm audit` de los dos frontends | S | Cada PR muestra el check |
 | ✅ 2.3 | Unificar helpers en `Comun/` (`NombresSql`, `Texto`) y borrar las copias | S | Una sola implementación de cada uno (11 copias eliminadas) |
 
-### Fase 3 — Correctitud del pipeline
+### ✅ Fase 3 — Correctitud del pipeline (completa)
 
 | # | Tarea | Esf. | Criterio de terminado |
 |---|---|---|---|
-| ✅ 3.1 | Publicar con **migraciones** (hecho: cambios seguros automáticos; inseguros se rechazan. Falta: renombrar y preview, ver L1/L2): detectar diferencias entre la metadata y la tabla real (agregar, cambiar tipo o nulabilidad, renombrar, borrar), mostrar un preview del SQL y aplicarlo con confirmación | L | Cambiar un campo y republicar actualiza la tabla |
+| ✅ 3.1 | Publicar con **migraciones** (hecho: cambios seguros automáticos, inseguros se rechazan; renombrados de tablas y columnas conservando datos; **preview** antes de publicar con tablas nuevas, renombrados, SQL y errores, que se aplica solo al confirmar) | L | Cambiar un campo y republicar actualiza la tabla |
 | ✅ 3.2 | Borrar un sistema (hecho: se **archiva**, decisión del 2026-10-07) también borra el schema y la carpeta (opcional, con confirmación) | S | No quedan restos |
 | ✅ 3.3 | Relaciones (hecho: se quitaron los tipos no soportados): implementar ManyToMany (tabla intermedia) o sacar del diseño los tipos que no se soportan | M | El diseño refleja lo que realmente se crea |
 | ✅ 3.4 | Paginación del lado del servidor (hecho: la fábrica pagina, busca, filtra y ordena en SQL con el total en `X-Total-Count`; los sistemas generados lo hacen cuando su entidad tiene paginación activada, y si no siguen como antes) | M | Listar trae solo la página pedida |
@@ -239,7 +239,7 @@ Tomadas el 2026-10-07:
 Abiertas:
 
 - **Prioridad de la Fase 5:** ¿qué funcionalidad nueva aporta más valor primero?
-- **Renombrados en el diseño (L1):** ¿se implementan como migración, con preview?
+- **Renombrados en el diseño (L1):** ✅ como migración con preview (Fase 3).
 
 ## 7. Pruebas de punta a punta
 
@@ -256,4 +256,4 @@ Cada arreglo de la Fase 1 se da por terminado cuando su prueba pasa en verde.
 
 1. Mergear en orden: `refactor/estructura-por-modulos` → `fix/autorizacion-admin-y-decimales` → `chore/fase-2-calidad` (0.1).
 2. **Fase 4:** ✅ completa.
-3. **Fase 3 pendiente:** renombrados en el diseño (L1), y registro en el login generado (3.7).
+3. **Fase 3:** ✅ completa.

@@ -144,6 +144,13 @@ namespace Backend.Modulos.Sistemas.Campos
                     return false;
             }
 
+            // Las relaciones guardan la FK por nombre de columna: si se renombra, la siguen
+            if (!string.Equals(field.ColumnName, columnName, StringComparison.Ordinal))
+            {
+                foreach (var relacion in context.Relations.Where(r => r.SourceEntityId == entityId && r.ForeignKey == field.ColumnName))
+                    relacion.ForeignKey = columnName;
+            }
+
             field.Name = name;
             field.ColumnName = columnName;
             field.DataType = request.DataType.Trim().ToLowerInvariant();

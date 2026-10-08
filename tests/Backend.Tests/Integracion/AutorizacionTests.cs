@@ -22,6 +22,7 @@ namespace Backend.Tests.Integracion
             new object[] { "POST", "/api/v1/sistemas" },
             new object[] { "DELETE", "/api/v1/sistemas/999999" },
             new object[] { "POST", "/api/v1/sistemas/999999/publicar" },
+            new object[] { "GET", "/api/v1/sistemas/999999/publicar/preview" },
             new object[] { "POST", "/api/v1/sistemas/999999/sql/execute" },
             new object[] { "POST", "/api/v1/sistemas/999999/generar-backend" },
             new object[] { "POST", "/api/v1/sistemas/999999/export" },

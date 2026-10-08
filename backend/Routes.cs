@@ -55,6 +55,7 @@ namespace Backend
                 public const string Editar = "api/v1/sistemas/{id}";
                 public const string Eliminar = "api/v1/sistemas/{id}";
                 public const string Publicar = "api/v1/sistemas/{id}/publicar";
+                public const string PreviewPublicar = "api/v1/sistemas/{id}/publicar/preview";
                 public const string Exportar = "api/v1/sistemas/{id}/export";
                 public const string EjecutarSql = "api/v1/sistemas/{id}/sql/execute";
                 public const string GenerarBackend = "api/v1/sistemas/{id}/generar-backend";
