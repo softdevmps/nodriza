@@ -30,4 +30,9 @@
     <None Remove="exports/**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Plantillas del backend generado (ver Modulos/Sistemas/GeneradorBackend/Plantillas.cs) -->
+    <EmbeddedResource Include="Modulos/Sistemas/GeneradorBackend/Plantillas/*.plantilla" LogicalName="Plantillas/%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+
 </Project>

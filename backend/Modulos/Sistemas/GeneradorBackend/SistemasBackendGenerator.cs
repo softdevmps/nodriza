@@ -243,50 +243,12 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
 
         private string BuildCsproj(string projectName)
         {
-            return $@"<Project Sdk=""Microsoft.NET.Sdk.Web"">
-
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include=""BCrypt.Net-Next"" Version=""4.0.3"" />
-    <PackageReference Include=""DotNetEnv"" Version=""3.1.1"" />
-    <PackageReference Include=""Microsoft.AspNetCore.Authentication.JwtBearer"" Version=""8.0.0"" />
-    <PackageReference Include=""Microsoft.Data.SqlClient"" Version=""5.2.0"" />
-    <PackageReference Include=""Swashbuckle.AspNetCore"" Version=""6.6.2"" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Watch Include="".restart"" />
-  </ItemGroup>
-
-</Project>
-";
+            return Plantillas.Leer("proyecto.csproj");
         }
 
         private string BuildEnvExample()
         {
-            return @"DB_SERVER=SERVIDOR_BASE_DE_DATOS,PUERTO
-DB_NAME=NOMBRE_BASE_DE_DATOS
-DB_USER=USUARIO_DE_BASE_DE_DATOS
-DB_PASSWORD=CONTRASEÑA_DE_BASE_DE_DATOS
-DB_TRUST_CERT=True
-
-# Secreto propio de este sistema: 32+ caracteres aleatorios (el backend no arranca sin él)
-JWT_SECRET=
-JWT_ISSUER=mi-sistema-backend
-JWT_AUDIENCE=mi-sistema-clientes
-JWT_EXPIRE_MINUTES=120
-
-# Orígenes permitidos por CORS, separados por coma (vacío = solo localhost)
-CORS_ORIGINS=
-
-# Registro público de usuarios (true/false)
-REGISTRO_PUBLICO=false
-";
+            return Plantillas.Leer("env.example");
         }
 
         private string BuildEnvFile(string slug, string dbUser, string dbPassword, string jwtSecret)
@@ -296,20 +258,15 @@ REGISTRO_PUBLICO=false
                     ? fallback
                     : Environment.GetEnvironmentVariable(key)!;
 
-            return $@"DB_SERVER={Get("DB_SERVER", "localhost,1433")}
-DB_NAME={Get("DB_NAME", "systemBase")}
-DB_USER={dbUser}
-DB_PASSWORD={dbPassword}
-DB_TRUST_CERT={Get("DB_TRUST_CERT", "True")}
-
-JWT_SECRET={jwtSecret}
-JWT_ISSUER={slug}-backend
-JWT_AUDIENCE={slug}-clientes
-JWT_EXPIRE_MINUTES={Get("JWT_EXPIRE_MINUTES", "120")}
-
-CORS_ORIGINS=
-REGISTRO_PUBLICO=false
-";
+            return Plantillas.Leer("env",
+                ("dbServidor", Get("DB_SERVER", "localhost,1433")),
+                ("dbNombre", Get("DB_NAME", "systemBase")),
+                ("dbUsuario", dbUser),
+                ("dbPassword", dbPassword),
+                ("dbTrustCert", Get("DB_TRUST_CERT", "True")),
+                ("jwtSecreto", jwtSecret),
+                ("slug", slug),
+                ("jwtMinutos", Get("JWT_EXPIRE_MINUTES", "120")));
         }
 
         /// <summary>
@@ -346,158 +303,17 @@ REGISTRO_PUBLICO=false
 
         private string BuildGitignore()
         {
-            return @"# Credenciales: nunca al repositorio
-.env
-.env.*
-!.env.example
-
-bin/
-obj/
-.vs/
-*.user
-.restart
-";
+            return Plantillas.Leer("gitignore");
         }
 
         private string BuildProgram()
         {
-            return @"using DotNetEnv;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using System.Text;
-using Backend.Utils;
-
-Env.Load();
-
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.PropertyNamingPolicy = null;
-        options.JsonSerializerOptions.DictionaryKeyPolicy = null;
-    });
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(""AllowFrontend"", policy =>
-    {
-        // CORS_ORIGINS (separados por coma) o, si está vacío, solo orígenes localhost.
-        var origenes = AppConfig.CORS_ORIGINS;
-        policy
-            .SetIsOriginAllowed(origin =>
-                origenes.Length > 0
-                    ? origenes.Contains(origin, StringComparer.OrdinalIgnoreCase)
-                    : Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback)
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-});
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-
-            ValidIssuer = AppConfig.JWT_ISSUER,
-            ValidAudience = AppConfig.JWT_AUDIENCE,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(AppConfig.JWT_SECRET)
-            )
-        };
-
-        // Un usuario desactivado pierde el acceso aunque su token no haya vencido.
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = context =>
-            {
-                if (!int.TryParse(context.Principal?.FindFirst(""usuarioId"")?.Value, out var usuarioId))
-                {
-                    context.Fail(""Token sin usuario."");
-                    return Task.CompletedTask;
-                }
-
-                using var conn = Backend.Data.Db.Open();
-                using var cmd = new Microsoft.Data.SqlClient.SqlCommand(
-                    ""SELECT TOP 1 Id FROM dbo.Usuarios WHERE Id = @id AND Activo = 1"", conn);
-                cmd.Parameters.AddWithValue(""@id"", usuarioId);
-                if (cmd.ExecuteScalar() == null)
-                    context.Fail(""Usuario inactivo."");
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.AddSecurityDefinition(""Bearer"", new OpenApiSecurityScheme
-    {
-        Name = ""Authorization"",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = ""Bearer"",
-        BearerFormat = ""JWT"",
-        In = ParameterLocation.Header,
-        Description = ""Bearer {token}""
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = ""Bearer""
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
-
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-app.UseCors(""AllowFrontend"");
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
-app.Run();
-";
+            return Plantillas.Leer("Program.cs");
         }
 
         private string BuildLaunchSettings(string projectName, int httpPort)
         {
-            return $@"{{
-  ""profiles"": {{
-    ""{projectName}"": {{
-      ""commandName"": ""Project"",
-      ""dotnetRunMessages"": true,
-      ""launchBrowser"": true,
-      ""launchUrl"": ""swagger"",
-      ""applicationUrl"": ""http://localhost:{httpPort}"",
-      ""environmentVariables"": {{
-        ""ASPNETCORE_ENVIRONMENT"": ""Development""
-      }}
-    }}
-  }}
-}}
-";
+            return Plantillas.Leer("launchSettings.json", ("proyecto", projectName), ("puerto", httpPort));
         }
 
         private int GetBackendPort(int systemId)
@@ -595,391 +411,57 @@ app.Run();
 
         private string BuildDevToolsController()
         {
-            return @"using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
-using System.Net;
-using System.IO;
-
-namespace Backend.Controllers
-{
-    [ApiController]
-    public class DevToolsController : AppController
-    {
-        private readonly IHostApplicationLifetime _lifetime;
-        private readonly IWebHostEnvironment _env;
-
-        public DevToolsController(IHostApplicationLifetime lifetime, IWebHostEnvironment env)
-        {
-            _lifetime = lifetime;
-            _env = env;
-        }
-
-        [HttpPost(Routes.v1.DevTools.Restart)]
-        [AllowAnonymous]
-        public IActionResult Restart()
-        {
-            if (!_env.IsDevelopment())
-                return Forbid();
-
-            var remote = HttpContext.Connection.RemoteIpAddress;
-            if (remote == null || !IPAddress.IsLoopback(remote))
-                return Forbid();
-
-            TouchRestartSignal();
-            _ = Task.Run(() => _lifetime.StopApplication());
-
-            return Ok(new { message = ""Reiniciando backend..."" });
-        }
-
-        [HttpGet(Routes.v1.DevTools.Ping)]
-        [AllowAnonymous]
-        public IActionResult Ping()
-        {
-            if (!_env.IsDevelopment())
-                return Forbid();
-
-            return Ok(new { status = ""ok"" });
-        }
-
-        private void TouchRestartSignal()
-        {
-            try
-            {
-                var path = Path.Combine(_env.ContentRootPath, "".restart"");
-                System.IO.File.WriteAllText(path, DateTime.UtcNow.ToString(""O""));
-            }
-            catch
-            {
-                // no-op
-            }
-        }
-    }
-}
-";
+            return Plantillas.Leer("DevToolsController.cs");
         }
 
         private string BuildDbClass()
         {
-            return @"using Microsoft.Data.SqlClient;
-using Backend.Utils;
-
-namespace Backend.Data
-{
-    public static class Db
-    {
-        public static SqlConnection Open()
-        {
-            var connectionString =
-                $""Server={AppConfig.DB_SERVER};Database={AppConfig.DB_NAME};User Id={AppConfig.DB_USER};Password={AppConfig.DB_PASSWORD};TrustServerCertificate=True;"";
-
-            var conn = new SqlConnection(connectionString);
-            conn.Open();
-            return conn;
-        }
-    }
-}
-";
+            return Plantillas.Leer("Db.cs");
         }
 
         private string BuildAppConfig()
         {
-            return @"namespace Backend.Utils
-{
-    public static class AppConfig
-    {
-        public static string DB_SERVER => Environment.GetEnvironmentVariable(""DB_SERVER"") ?? """";
-        public static string DB_NAME => Environment.GetEnvironmentVariable(""DB_NAME"") ?? """";
-        public static string DB_USER => Environment.GetEnvironmentVariable(""DB_USER"") ?? """";
-        public static string DB_PASSWORD => Environment.GetEnvironmentVariable(""DB_PASSWORD"") ?? """";
-
-        // Sin valor por defecto: sin un secreto propio y largo el backend no arranca.
-        public static string JWT_SECRET
-        {
-            get
-            {
-                var secreto = Environment.GetEnvironmentVariable(""JWT_SECRET"");
-                if (string.IsNullOrWhiteSpace(secreto) || System.Text.Encoding.UTF8.GetByteCount(secreto) < 32)
-                    throw new InvalidOperationException(""Falta JWT_SECRET en el .env (mínimo 32 caracteres)."");
-                return secreto;
-            }
-        }
-        public static string JWT_ISSUER => Environment.GetEnvironmentVariable(""JWT_ISSUER"") ?? ""systembase"";
-        public static string JWT_AUDIENCE => Environment.GetEnvironmentVariable(""JWT_AUDIENCE"") ?? ""systembase"";
-        public static int JWT_EXPIRE_MINUTES =>
-            int.TryParse(Environment.GetEnvironmentVariable(""JWT_EXPIRE_MINUTES""), out var minutes)
-                ? minutes
-                : 120;
-
-        public static bool REGISTRO_PUBLICO =>
-            bool.TryParse(Environment.GetEnvironmentVariable(""REGISTRO_PUBLICO""), out var habilitado) && habilitado;
-
-        public static string[] CORS_ORIGINS =>
-            (Environment.GetEnvironmentVariable(""CORS_ORIGINS"") ?? """")
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    }
-}
-";
+            return Plantillas.Leer("AppConfig.cs");
         }
 
         private string BuildJwtService()
         {
-            return @"using Backend.Utils;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-
-namespace Backend.Models.Jwt
-{
-    public static class JwtService
-    {
-        public static (string token, DateTime expiracion) GenerarToken(int usuarioId, string usuario)
-        {
-            var claims = new[]
-            {
-                new Claim(""usuarioId"", usuarioId.ToString()),
-                new Claim(ClaimTypes.NameIdentifier, usuario)
-            };
-
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(AppConfig.JWT_SECRET)
-            );
-
-            var token = new JwtSecurityToken(
-                issuer: AppConfig.JWT_ISSUER,
-                audience: AppConfig.JWT_AUDIENCE,
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(AppConfig.JWT_EXPIRE_MINUTES),
-                signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
-            );
-
-            return (
-                new JwtSecurityTokenHandler().WriteToken(token),
-                DateTime.UtcNow.AddMinutes(AppConfig.JWT_EXPIRE_MINUTES)
-            );
-        }
-    }
-}
-";
+            return Plantillas.Leer("JwtService.cs");
         }
 
         private string BuildAuthGestor()
         {
-            return @"using Backend.Data;
-using Backend.Models.Auth;
-using Backend.Models.Jwt;
-using Microsoft.Data.SqlClient;
-
-namespace Backend.Negocio.Gestores
-{
-    public static class AuthGestor
-    {
-        public static LoginResponse? Login(LoginRequest request)
-        {
-            using var conn = Db.Open();
-
-            const string sql = @""SELECT TOP 1 Id, Username, PasswordHash
-                                 FROM dbo.Usuarios
-                                 WHERE Activo = 1 AND (Username = @u OR Email = @u)"";
-
-            using var cmd = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue(""@u"", request.Usuario);
-
-            using var reader = cmd.ExecuteReader();
-            if (!reader.Read())
-                return null;
-
-            var id = Convert.ToInt32(reader[""Id""]);
-            var username = reader[""Username""].ToString() ?? """";
-            var hash = reader[""PasswordHash""].ToString() ?? """";
-
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, hash))
-                return null;
-
-            var (token, expiracion) = JwtService.GenerarToken(id, username);
-
-            return new LoginResponse
-            {
-                UsuarioId = id,
-                Usuario = username,
-                Token = token,
-                Expiracion = expiracion
-            };
-        }
-
-        public static bool Registrar(RegistrarRequest model)
-        {
-            using var conn = Db.Open();
-
-            const string sqlExiste = @""SELECT TOP 1 Id
-                                       FROM dbo.Usuarios
-                                       WHERE Username = @u OR Email = @e"";
-
-            using var cmdExiste = new SqlCommand(sqlExiste, conn);
-            cmdExiste.Parameters.AddWithValue(""@u"", model.Username);
-            cmdExiste.Parameters.AddWithValue(""@e"", model.Email);
-
-            var existe = cmdExiste.ExecuteScalar() != null;
-            if (existe)
-                return false;
-
-            const string sqlInsert = @""INSERT INTO dbo.Usuarios
-                                      (Username, Email, PasswordHash, Nombre, Apellido, Activo, FechaCreacion)
-                                      VALUES (@u, @e, @p, @n, @a, 1, GETUTCDATE())"";
-
-            using var cmdInsert = new SqlCommand(sqlInsert, conn);
-            cmdInsert.Parameters.AddWithValue(""@u"", model.Username);
-            cmdInsert.Parameters.AddWithValue(""@e"", model.Email);
-            cmdInsert.Parameters.AddWithValue(""@p"", BCrypt.Net.BCrypt.HashPassword(model.Password));
-            cmdInsert.Parameters.AddWithValue(""@n"", model.Nombre);
-            cmdInsert.Parameters.AddWithValue(""@a"", model.Apellido);
-            cmdInsert.ExecuteNonQuery();
-
-            return true;
-        }
-    }
-}
-";
+            return Plantillas.Leer("AuthGestor.cs");
         }
 
         private string BuildLoginRequest()
         {
-            return @"namespace Backend.Models.Auth
-{
-    public class LoginRequest
-    {
-        public string Usuario { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-    }
-}
-";
+            return Plantillas.Leer("LoginRequest.cs");
         }
 
         private string BuildLoginResponse()
         {
-            return @"namespace Backend.Models.Auth
-{
-    public class LoginResponse
-    {
-        public int UsuarioId { get; set; }
-        public string Usuario { get; set; } = string.Empty;
-        public string Token { get; set; } = string.Empty;
-        public DateTime Expiracion { get; set; }
-    }
-}
-";
+            return Plantillas.Leer("LoginResponse.cs");
         }
 
         private string BuildRegistrarRequest()
         {
-            return @"using System.ComponentModel.DataAnnotations;
-
-namespace Backend.Models.Auth
-{
-    public class RegistrarRequest
-    {
-        [Required]
-        public string Username { get; set; } = string.Empty;
-
-        [Required, EmailAddress]
-        public string Email { get; set; } = string.Empty;
-
-        [Required, MinLength(8), RegularExpression(@""^(?=.*\p{L})(?=.*\d).+$"", ErrorMessage = ""La contraseña debe tener al menos 8 caracteres, con letras y números."")]
-        public string Password { get; set; } = string.Empty;
-
-        [Required]
-        public string Nombre { get; set; } = string.Empty;
-
-        [Required]
-        public string Apellido { get; set; } = string.Empty;
-    }
-}
-";
+            return Plantillas.Leer("RegistrarRequest.cs");
         }
 
         private string BuildUsuarioToken()
         {
-            return @"namespace Backend.Models.Auth
-{
-    public class UsuarioToken
-    {
-        public int UsuarioId { get; set; }
-        public string? Usuario { get; set; }
-    }
-}
-";
+            return Plantillas.Leer("UsuarioToken.cs");
         }
 
         private string BuildAppController()
         {
-            return @"using Backend.Models.Auth;
-using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
-
-namespace Backend.Controllers
-{
-    public class AppController : ControllerBase
-    {
-        protected UsuarioToken UsuarioToken()
-        {
-            var usuarioId = User.FindFirst(""usuarioId"")?.Value;
-            var usuario = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            return new UsuarioToken
-            {
-                UsuarioId = usuarioId != null ? int.Parse(usuarioId) : 0,
-                Usuario = usuario
-            };
-        }
-    }
-}
-";
+            return Plantillas.Leer("AppController.cs");
         }
 
         private string BuildAuthController()
         {
-            return @"using Backend.Models.Auth;
-using Backend.Negocio.Gestores;
-using Backend.Utils;
-using Microsoft.AspNetCore.Mvc;
-
-namespace Backend.Controllers
-{
-    [ApiController]
-    public class AuthController : AppController
-    {
-        [HttpPost(Routes.v1.Auth.Registrar)]
-        public IActionResult Registrar([FromBody] RegistrarRequest model)
-        {
-            if (!AppConfig.REGISTRO_PUBLICO)
-                return StatusCode(403, ""El registro público está deshabilitado."");
-
-            if (!ModelState.IsValid)
-                return BadRequest(""Datos inválidos"");
-
-            var ok = AuthGestor.Registrar(model);
-            if (!ok)
-                return BadRequest(""Usuario o email ya existente"");
-
-            return Ok(""Usuario creado correctamente"");
-        }
-
-        [HttpPost(Routes.v1.Auth.Login)]
-        public IActionResult Login([FromBody] LoginRequest model)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(""Datos incorrectos"");
-
-            var result = AuthGestor.Login(model);
-            if (result == null)
-                return Unauthorized(""Usuario o contraseña incorrectos"");
-
-            return Ok(result);
-        }
-    }
-}
-";
+            return Plantillas.Leer("AuthController.cs");
         }
 
         private string BuildEntityModel(string entityName, List<Fields> fields)

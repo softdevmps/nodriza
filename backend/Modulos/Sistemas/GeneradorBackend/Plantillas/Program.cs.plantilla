@@ -1,0 +1,117 @@
+using DotNetEnv;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
+using Backend.Utils;
+
+Env.Load();
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
+        options.JsonSerializerOptions.DictionaryKeyPolicy = null;
+    });
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        // CORS_ORIGINS (separados por coma) o, si está vacío, solo orígenes localhost.
+        var origenes = AppConfig.CORS_ORIGINS;
+        policy
+            .SetIsOriginAllowed(origin =>
+                origenes.Length > 0
+                    ? origenes.Contains(origin, StringComparer.OrdinalIgnoreCase)
+                    : Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+
+            ValidIssuer = AppConfig.JWT_ISSUER,
+            ValidAudience = AppConfig.JWT_AUDIENCE,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(AppConfig.JWT_SECRET)
+            )
+        };
+
+        // Un usuario desactivado pierde el acceso aunque su token no haya vencido.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                if (!int.TryParse(context.Principal?.FindFirst("usuarioId")?.Value, out var usuarioId))
+                {
+                    context.Fail("Token sin usuario.");
+                    return Task.CompletedTask;
+                }
+
+                using var conn = Backend.Data.Db.Open();
+                using var cmd = new Microsoft.Data.SqlClient.SqlCommand(
+                    "SELECT TOP 1 Id FROM dbo.Usuarios WHERE Id = @id AND Activo = 1", conn);
+                cmd.Parameters.AddWithValue("@id", usuarioId);
+                if (cmd.ExecuteScalar() == null)
+                    context.Fail("Usuario inactivo.");
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Bearer {token}"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+app.Run();

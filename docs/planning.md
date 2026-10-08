@@ -137,7 +137,7 @@ cd frontend && npm install && npm run dev   # entrar con admin/admin
 | ~~D1~~ | (resuelto, ver arriba) Archivos enormes que mezclan responsabilidades. `SistemasController` mezcla CRUD, consola SQL, export y manejo de procesos. `SistemaEditor.vue` tiene 4 pestañas completas en un solo archivo. |
 | ✅ D1 | ~~Archivos enormes~~: `SistemasController` y `SistemaEditor.vue` divididos (Fase 4.1/4.2).
 | ✅ D2 | Helpers duplicados (`ToSafeSqlName`, `ToKebab`, `MapSqlType`, `ToPascalCase`) en 4 o 5 archivos, y con pequeñas diferencias entre sí. |
-| D3 | El generador de backend escribe el código C# a partir de strings dentro de C#. Es difícil de leer y de mantener. |
+| ✅ D3 | ~~El generador escribe el C# desde strings dentro de C#~~: los archivos fijos ahora son plantillas legibles en `GeneradorBackend/Plantillas/` (Fase 4.4). Lo que depende de cada entidad sigue armándose en código. |
 | D4 | `frontend/` y `frontend-runtime/` duplican layout, auth, utilidades y el runtime, y ya divergieron. |
 | ✅ D5 | ~~Gestores `static` con `new SystemBaseContext()`~~: ahora se inyectan (Fase 4.3). |
 | D6 | ~~No hay tests ni CI~~ (resuelto en Fase 2). Falta linter. Hay 171 warnings de nullability. |
@@ -209,7 +209,7 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 | ✅ 4.1 | Dividir `SistemasController` (hecho: 1.452 → 148 líneas; ConsolaSql/, Exportacion/, Herramientas/ y controllers de generación) en `SistemasController`, `ConsolaSqlController`, `ExportacionController` y `HerramientasController`, con las mismas rutas | M | Ningún controller pasa de 300 líneas |
 | ✅ 4.2 | Dividir `SistemaEditor.vue` en un componente por pestaña (hecho: 3.571 → 122 líneas + 7 componentes ≤ 460; lógica en `useSistemaEditor.js`, que todavía se puede partir por pestaña) | M | Ningún `.vue` pasa de 800 líneas |
 | ✅ 4.3 | Gestores inyectables (hecho: 17 gestores registrados en `Comun/Inyeccion.cs`, contexto por operación con `IDbContextFactory`) | L | Los gestores se pueden testear con dependencias falsas |
-| 4.4 | Generador de backend con archivos de plantilla (Scriban o similar) en vez de strings en C# | L | Las plantillas son archivos `.cs` legibles |
+| ✅ 4.4 | Generador de backend con archivos de plantilla (hecho: 17 archivos `.plantilla` embebidos con marcadores `{{nombre}}`, sin dependencias nuevas; la salida generada es idéntica byte a byte) | L | Las plantillas son archivos `.cs` legibles |
 | 4.5 | Reducir la duplicación entre `frontend` y `frontend-runtime` | M | Un cambio de layout se hace en un solo lugar |
 
 ### Fase 5 — Funcionalidad nueva (a definir)
@@ -253,5 +253,5 @@ Cada arreglo de la Fase 1 se da por terminado cuando su prueba pasa en verde.
 ## 8. Próximo paso recomendado
 
 1. Mergear en orden: `refactor/estructura-por-modulos` → `fix/autorizacion-admin-y-decimales` → `chore/fase-2-calidad` (0.1).
-2. **Fase 4 restante:** gestores inyectables (4.3), plantillas para el generador (4.4) y reducir la duplicación entre `frontend` y `frontend-runtime` (4.5).
+2. **Fase 4 restante:** reducir la duplicación entre `frontend` y `frontend-runtime` (4.5).
 3. **Fase 3 pendiente:** paginación del servidor en la UI del runtime (3.4) y renombrados en el diseño (L1).

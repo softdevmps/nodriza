@@ -1,0 +1,74 @@
+using Backend.Data;
+using Backend.Models.Auth;
+using Backend.Models.Jwt;
+using Microsoft.Data.SqlClient;
+
+namespace Backend.Negocio.Gestores
+{
+    public static class AuthGestor
+    {
+        public static LoginResponse? Login(LoginRequest request)
+        {
+            using var conn = Db.Open();
+
+            const string sql = @"SELECT TOP 1 Id, Username, PasswordHash
+                                 FROM dbo.Usuarios
+                                 WHERE Activo = 1 AND (Username = @u OR Email = @u)";
+
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@u", request.Usuario);
+
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read())
+                return null;
+
+            var id = Convert.ToInt32(reader["Id"]);
+            var username = reader["Username"].ToString() ?? "";
+            var hash = reader["PasswordHash"].ToString() ?? "";
+
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, hash))
+                return null;
+
+            var (token, expiracion) = JwtService.GenerarToken(id, username);
+
+            return new LoginResponse
+            {
+                UsuarioId = id,
+                Usuario = username,
+                Token = token,
+                Expiracion = expiracion
+            };
+        }
+
+        public static bool Registrar(RegistrarRequest model)
+        {
+            using var conn = Db.Open();
+
+            const string sqlExiste = @"SELECT TOP 1 Id
+                                       FROM dbo.Usuarios
+                                       WHERE Username = @u OR Email = @e";
+
+            using var cmdExiste = new SqlCommand(sqlExiste, conn);
+            cmdExiste.Parameters.AddWithValue("@u", model.Username);
+            cmdExiste.Parameters.AddWithValue("@e", model.Email);
+
+            var existe = cmdExiste.ExecuteScalar() != null;
+            if (existe)
+                return false;
+
+            const string sqlInsert = @"INSERT INTO dbo.Usuarios
+                                      (Username, Email, PasswordHash, Nombre, Apellido, Activo, FechaCreacion)
+                                      VALUES (@u, @e, @p, @n, @a, 1, GETUTCDATE())";
+
+            using var cmdInsert = new SqlCommand(sqlInsert, conn);
+            cmdInsert.Parameters.AddWithValue("@u", model.Username);
+            cmdInsert.Parameters.AddWithValue("@e", model.Email);
+            cmdInsert.Parameters.AddWithValue("@p", BCrypt.Net.BCrypt.HashPassword(model.Password));
+            cmdInsert.Parameters.AddWithValue("@n", model.Nombre);
+            cmdInsert.Parameters.AddWithValue("@a", model.Apellido);
+            cmdInsert.ExecuteNonQuery();
+
+            return true;
+        }
+    }
+}
