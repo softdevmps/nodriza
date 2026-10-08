@@ -314,10 +314,7 @@ export default {
     fieldCols(field) {
       const type = this.resolveInputType(field)
       const name = String(field?.columnName || field?.name || '').toLowerCase()
-      const smallField = [
-        'id', 'incidenteid', 'tipohechoid', 'lat', 'lng', 'confidence',
-        'format', 'durationsec', 'hash', 'estado', 'createdat', 'fecha', 'hora'
-      ].some(token => name.includes(token))
+      const smallField = ['id', 'estado', 'createdat', 'fecha', 'hora'].some(token => name.includes(token))
       const longText = type === 'textarea'
         || (field?.maxLength && Number(field.maxLength) > 200)
         || name.includes('descripcion')

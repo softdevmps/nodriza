@@ -15,15 +15,6 @@
         </div>
       </v-col>
       <v-col cols="auto" class="d-flex ga-2">
-        <v-btn
-          v-if="showAudioRecorder"
-          class="cta-button ghost"
-          variant="tonal"
-          @click="abrirAudioDialog"
-        >
-          <v-icon left>mdi-microphone</v-icon>
-          Grabar audio
-        </v-btn>
         <v-btn class="cta-button primary" :disabled="!entidadSeleccionada" @click="nuevoRegistro">
           <v-icon left>mdi-plus</v-icon>
           Nuevo registro
@@ -63,60 +54,6 @@
       </v-col>
 
       <v-col cols="12" md="9">
-        <v-card v-if="showIncidentMap" elevation="2" class="card mb-4 map-card">
-          <v-card-title class="d-flex align-center justify-space-between">
-            <div class="d-flex align-center">
-              <v-icon class="mr-2" color="primary">mdi-map</v-icon>
-              <span class="text-h6">Mapa</span>
-            </div>
-            <v-btn
-              v-if="mapUrls?.link"
-              icon
-              variant="text"
-              :href="mapUrls.link"
-              target="_blank"
-              rel="noopener"
-              title="Abrir en OpenStreetMap"
-            >
-              <v-icon>mdi-open-in-new</v-icon>
-            </v-btn>
-          </v-card-title>
-          <v-divider />
-          <v-card-text>
-            <v-row dense>
-              <v-col cols="12" md="7">
-                <div v-if="mapUrls?.embed" class="map-embed">
-                  <iframe
-                    :src="mapUrls.embed"
-                    width="100%"
-                    height="300"
-                    style="border:0;"
-                    loading="lazy"
-                    referrerpolicy="no-referrer-when-downgrade"
-                  />
-                </div>
-                <v-alert v-else type="info" variant="tonal">
-                  Selecciona un incidente con coordenadas para ver el mapa.
-                </v-alert>
-              </v-col>
-              <v-col cols="12" md="5">
-                <div class="text-caption text-medium-emphasis">Lugar</div>
-                <div class="mb-2">
-                  {{ mapRecord?.LugarNormalizado || mapRecord?.LugarTexto || 'Sin lugar' }}
-                </div>
-                <div class="text-caption text-medium-emphasis">Descripcion</div>
-                <div class="mb-2">
-                  {{ mapRecord?.Descripcion || 'Sin descripcion' }}
-                </div>
-                <div class="text-caption text-medium-emphasis">Fecha/Hora</div>
-                <div>
-                  {{ formattedCell(mapRecord || {}, { key: 'FechaHora' }).text }}
-                </div>
-              </v-col>
-            </v-row>
-          </v-card-text>
-        </v-card>
-
         <v-card elevation="2" class="card">
           <v-card-title class="d-flex align-center justify-space-between">
             <div class="d-flex align-center">
@@ -187,10 +124,7 @@
             hover
           >
             <template #item="{ item, columns }">
-              <tr
-                :class="{ 'row-selected': showIncidentMap && mapRecord && getRecordId(item.raw || item) === getRecordId(mapRecord) }"
-                @click="showIncidentMap ? (mapRecord = item.raw || item) : null"
-              >
+              <tr>
                 <td v-for="col in columns" :key="col.key" :class="{ 'actions-td': col.key === 'actions' }">
                   <template v-if="col.key === 'actions'">
                     <div class="actions-cell actions-grid">
@@ -215,52 +149,6 @@
                           </v-btn>
                         </template>
                       </v-tooltip>
-                      <v-tooltip v-if="showRetryJob" text="Reintentar job">
-                        <template #activator="{ props }">
-                          <v-btn
-                            v-bind="props"
-                            icon
-                            size="x-small"
-                            color="orange"
-                            variant="text"
-                            :loading="isRetrying(item.raw || item)"
-                            :disabled="isRetrying(item.raw || item)"
-                            @click="reintentarJob(item.raw || item)"
-                          >
-                            <v-icon>mdi-reload</v-icon>
-                          </v-btn>
-                        </template>
-                      </v-tooltip>
-                      <v-tooltip v-if="showMapAction" text="Ver en mapa">
-                        <template #activator="{ props }">
-                          <v-btn
-                            v-bind="props"
-                            icon
-                            size="x-small"
-                            color="green"
-                            variant="text"
-                            :disabled="!hasCoords(item.raw || item)"
-                            @click.stop="abrirMapa(item.raw || item)"
-                          >
-                            <v-icon>mdi-map-marker</v-icon>
-                          </v-btn>
-                        </template>
-                      </v-tooltip>
-                      <v-tooltip v-if="showAudioPlayAction" text="Escuchar audio">
-                        <template #activator="{ props }">
-                          <v-btn
-                            v-bind="props"
-                            icon
-                            size="x-small"
-                            color="deep-purple"
-                            variant="text"
-                            :disabled="!hasAudioFile(item.raw || item)"
-                            @click.stop="abrirAudioPlayback(item.raw || item)"
-                          >
-                            <v-icon>mdi-play-circle</v-icon>
-                          </v-btn>
-                        </template>
-                      </v-tooltip>
                       <v-tooltip v-if="quickToggleField" :text="`Toggle ${quickToggleField.label || quickToggleField.name}`">
                         <template #activator="{ props }">
                           <v-btn v-bind="props" icon size="x-small" color="teal" variant="text" @click="toggleQuickField(item.raw || item)">
@@ -282,12 +170,6 @@
                       <v-chip size="small" :color="formattedCell(item.raw || item, col).color">
                         {{ formattedCell(item.raw || item, col).text }}
                       </v-chip>
-                    </template>
-                    <template v-else-if="shouldShowProgress(item.raw || item, col)">
-                      <div class="d-flex flex-column">
-                        <span class="text-caption">{{ formattedCell(item.raw || item, col).text }}</span>
-                        <v-progress-linear indeterminate color="orange" height="4" class="mt-1" />
-                      </div>
                     </template>
                     <template v-else>
                       <span
@@ -341,143 +223,6 @@
       @guardado="cargarDatos"
     />
 
-    <v-dialog v-model="audioDialog" max-width="640">
-      <v-card class="sb-dialog">
-        <v-card-title class="sb-dialog-title">
-          <div class="sb-dialog-icon">
-            <v-icon color="deep-purple">mdi-microphone</v-icon>
-          </div>
-          <div>
-            <div class="sb-dialog-title-text">Grabar audio</div>
-            <div class="sb-dialog-subtitle">Captura directa desde el navegador.</div>
-          </div>
-        </v-card-title>
-        <v-divider />
-        <v-card-text class="sb-dialog-body">
-          <v-alert v-if="!audioSupported" type="error" variant="tonal" class="mb-4">
-            Tu navegador no soporta grabacion de audio.
-          </v-alert>
-
-          <v-text-field
-            v-model="audioDescripcion"
-            label="Descripcion"
-            hint="Opcional: agrega contexto del incidente"
-            persistent-hint
-            :density="uiDensity"
-            variant="outlined"
-          />
-
-          <v-row class="mt-2" dense>
-            <v-col cols="12" sm="4">
-              <v-btn
-                class="sb-btn danger"
-                block
-                variant="tonal"
-                :disabled="audioRecording || !audioSupported"
-                @click="startRecording"
-              >
-                <v-icon left>mdi-record-circle</v-icon>
-                Grabar
-              </v-btn>
-            </v-col>
-            <v-col cols="12" sm="4">
-              <v-btn
-                class="sb-btn warning"
-                block
-                variant="tonal"
-                :disabled="!audioRecording"
-                @click="stopRecording"
-              >
-                <v-icon left>mdi-stop</v-icon>
-                Detener
-              </v-btn>
-            </v-col>
-            <v-col cols="12" sm="4">
-              <v-btn class="sb-btn ghost" block variant="text" :disabled="audioRecording" @click="clearRecording">
-                Limpiar
-              </v-btn>
-            </v-col>
-          </v-row>
-
-          <audio v-if="audioUrl" class="audio-player mt-4" controls :src="audioUrl"></audio>
-
-          <v-alert v-if="audioError" type="error" variant="tonal" class="mt-4">
-            {{ audioError }}
-          </v-alert>
-
-          <v-alert v-if="audioSuccess" type="success" variant="tonal" class="mt-4">
-            Audio enviado. Job #{{ audioJobId }}
-          </v-alert>
-          <v-alert v-if="audioProcessing" type="info" variant="tonal" class="mt-4">
-            Procesando audio... Estado: {{ audioJobStatus || 'pendiente' }}
-            <div v-if="audioJobLastError" class="text-caption mt-1">
-              {{ audioJobLastError }}
-            </div>
-            <v-progress-linear
-              class="mt-2"
-              indeterminate
-              color="deep-purple"
-              height="4"
-            />
-          </v-alert>
-        </v-card-text>
-        <v-divider />
-        <v-card-actions class="d-flex justify-end ga-2 sb-dialog-actions">
-          <v-btn class="sb-btn ghost" variant="text" @click="cerrarAudioDialog">Cerrar</v-btn>
-          <v-btn
-            class="sb-btn primary"
-            color="deep-purple"
-            :disabled="!audioBlob || audioUploading"
-            @click="uploadRecording"
-          >
-            <v-icon left>mdi-cloud-upload</v-icon>
-            Enviar
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog v-model="audioPlayDialog" max-width="520">
-      <v-card class="sb-dialog">
-        <v-card-title class="sb-dialog-title">
-          <div class="sb-dialog-icon">
-            <v-icon color="deep-purple">mdi-play-circle</v-icon>
-          </div>
-          <div>
-            <div class="sb-dialog-title-text">Reproducir audio</div>
-            <div class="sb-dialog-subtitle">Escucha el archivo original.</div>
-          </div>
-        </v-card-title>
-        <v-divider />
-        <v-card-text class="sb-dialog-body">
-          <div v-if="audioPlayItem" class="text-caption text-medium-emphasis mb-2">
-            Audio #{{ getRecordId(audioPlayItem) }}
-            <span v-if="audioPlayItem?.Incidenteid || audioPlayItem?.IncidenteId">
-              · Incidente {{ audioPlayItem?.Incidenteid || audioPlayItem?.IncidenteId }}
-            </span>
-          </div>
-          <v-progress-linear v-if="audioPlayLoading" indeterminate color="deep-purple" height="4" class="mb-3" />
-          <v-alert v-if="audioPlayError" type="error" variant="tonal" class="mb-3">
-            {{ audioPlayError }}
-          </v-alert>
-          <audio
-            v-if="audioPlayUrl"
-            :key="audioPlayUrl"
-            class="audio-player"
-            controls
-            preload="auto"
-            @error="onAudioPlayError"
-          >
-            <source :src="audioPlayUrl" :type="audioPlayMime || undefined" />
-          </audio>
-        </v-card-text>
-        <v-divider />
-        <v-card-actions class="d-flex justify-end sb-dialog-actions">
-          <v-btn class="sb-btn ghost" variant="text" @click="cerrarAudioPlayback">Cerrar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
     <v-snackbar v-model="toastOpen" :timeout="2200" :color="toastColor">
       {{ toastMessage }}
     </v-snackbar>
@@ -485,7 +230,7 @@
 </template>
 
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import frontendConfig from '../../comun/config/frontend-config.json'
 import { toKebab } from '../../comun/utils/slug.js'
@@ -523,54 +268,6 @@ const itemsPerPage = ref(10)
 const dialog = ref(false)
 const dialogMode = ref('create')
 const registroActual = ref(null)
-
-const audioDialog = ref(false)
-const audioRecording = ref(false)
-const audioUploading = ref(false)
-const audioProcessing = ref(false)
-const audioJobStatus = ref('')
-const audioJobLastError = ref('')
-const audioError = ref('')
-const audioSuccess = ref(false)
-const audioJobId = ref(null)
-const audioDescripcion = ref('')
-const audioBlob = ref(null)
-const audioUrl = ref('')
-const audioMime = ref('')
-const audioPlayDialog = ref(false)
-const audioPlayLoading = ref(false)
-const audioPlayError = ref('')
-const audioPlayUrl = ref('')
-const audioPlayMime = ref('')
-const audioPlayItem = ref(null)
-const retryingIds = ref({})
-const mapRecord = ref(null)
-const autoRefreshIntervalMs = computed(() => config.value?.system?.autoRefreshIntervalMs || 3000)
-const autoRefreshAlways = computed(() => config.value?.system?.autoRefreshAlways === true)
-const hasActiveProcessing = computed(() => {
-  if (!registros.value.length) return false
-  const active = new Set(['processing', 'pending', 'retry', 'queued', 'running'])
-  return registros.value.some(item => {
-    const raw = item || {}
-    const status = (raw.Status ?? raw.status ?? raw.Step ?? raw.step ?? raw.Estado ?? raw.estado ?? '').toString().toLowerCase()
-    return active.has(status)
-  })
-})
-const autoRefreshEnabled = computed(() => {
-  if (!entidadSeleccionada.value) return false
-  if (entidadSeleccionada.value.autoRefresh === false) return false
-  if (autoRefreshAlways.value) return true
-  if (audioProcessing.value) return true
-  if (Object.keys(retryingIds.value).length > 0) return true
-  return hasActiveProcessing.value
-})
-let autoRefreshTimer = null
-let autoRefreshInFlight = false
-let mediaRecorder = null
-let mediaStream = null
-let audioChunks = []
-let audioPollTimer = null
-let audioPollInFlight = false
 
 const toastOpen = ref(false)
 const toastMessage = ref('')
@@ -705,79 +402,9 @@ const enableDuplicate = computed(() => entidadSeleccionada.value?.enableDuplicat
 
 const apiRoute = computed(() => (entidadSeleccionada.value ? entidadRoute(entidadSeleccionada.value) : ''))
 
-const isIncidentesView = computed(() => {
-  if (!entidadSeleccionada.value) return false
-  const slug = entidadRoute(entidadSeleccionada.value)
-  const name = (entidadSeleccionada.value?.name || '').toLowerCase()
-  return slug === 'incidentes' || name === 'incidentes'
-})
-
-const showAudioRecorder = computed(() => isIncidentesView.value)
-const showIncidentMap = computed(() => isIncidentesView.value)
-
-const showRetryJob = computed(() => {
-  if (!entidadSeleccionada.value) return false
-  const slug = entidadRoute(entidadSeleccionada.value)
-  const name = (entidadSeleccionada.value?.name || '').toLowerCase()
-  return slug === 'incidente-jobs' || slug === 'incidentejobs' || name === 'incidentejobs' || name === 'incidente-jobs'
-})
-
-const showAudioPlayAction = computed(() => {
-  if (!entidadSeleccionada.value) return false
-  const slug = entidadRoute(entidadSeleccionada.value)
-  const name = (entidadSeleccionada.value?.name || '').toLowerCase()
-  return slug === 'incidente-audio' || slug === 'incidenteaudio' || name === 'incidenteaudio' || name === 'incidente-audio'
-})
-
-const showMapAction = computed(() => isIncidentesView.value)
-
 const summaryItems = computed(() => {
-  const items = []
-  const list = registros.value || []
-  if (!entidadSeleccionada.value) return items
-
-  items.push({
-    label: 'Total',
-    value: list.length,
-    icon: 'mdi-format-list-bulleted'
-  })
-
-  if (isIncidentesView.value) {
-    const withCoords = list.filter(item => hasCoords(item)).length
-    items.push({
-      label: 'Con coordenadas',
-      value: withCoords,
-      icon: 'mdi-map-marker',
-      color: withCoords ? 'green' : 'grey'
-    })
-    items.push({
-      label: 'Sin coordenadas',
-      value: Math.max(list.length - withCoords, 0),
-      icon: 'mdi-map-marker-off-outline',
-      color: 'orange'
-    })
-  }
-
-  if (showRetryJob.value) {
-    const statusCounts = list.reduce((acc, item) => {
-      const status = getStatusValue(item)
-      if (!status) return acc
-      acc[status] = (acc[status] || 0) + 1
-      return acc
-    }, {})
-    if (statusCounts.done) {
-      items.push({ label: 'Completados', value: statusCounts.done, icon: 'mdi-check-circle-outline', color: 'green' })
-    }
-    if (statusCounts.processing || statusCounts.pending || statusCounts.running || statusCounts.queued) {
-      const active = (statusCounts.processing || 0) + (statusCounts.pending || 0) + (statusCounts.running || 0) + (statusCounts.queued || 0)
-      items.push({ label: 'En proceso', value: active, icon: 'mdi-timer-sand', color: 'orange' })
-    }
-    if (statusCounts.error) {
-      items.push({ label: 'Errores', value: statusCounts.error, icon: 'mdi-alert-circle-outline', color: 'red' })
-    }
-  }
-
-  return items
+  if (!entidadSeleccionada.value) return []
+  return [{ label: 'Total', value: totalRegistros.value, icon: 'mdi-format-list-bulleted' }]
 })
 
 const summaryMeta = computed(() => {
@@ -791,31 +418,6 @@ const summaryMeta = computed(() => {
   if (!timestamps.length) return ''
   const latest = new Date(Math.max(...timestamps))
   return latest.toLocaleString(locale.value)
-})
-
-const mapUrls = computed(() => {
-  if (!mapRecord.value) return null
-  const coords = getCoords(mapRecord.value)
-  if (!coords) return null
-  const { lat, lng } = coords
-  const delta = 0.01
-  const bbox = [
-    (lng - delta).toFixed(6),
-    (lat - delta).toFixed(6),
-    (lng + delta).toFixed(6),
-    (lat + delta).toFixed(6)
-  ].join(',')
-  const marker = `${lat.toFixed(6)},${lng.toFixed(6)}`
-  return {
-    embed: `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${marker}`,
-    link: `https://www.openstreetmap.org/?mlat=${lat.toFixed(6)}&mlon=${lng.toFixed(6)}#map=18/${lat.toFixed(6)}/${lng.toFixed(6)}`
-  }
-})
-
-const audioSupported = computed(() => {
-  return typeof window !== 'undefined' &&
-    navigator?.mediaDevices?.getUserMedia &&
-    typeof window.MediaRecorder !== 'undefined'
 })
 
 const itemsPerPageOptions = computed(() => config.value?.system?.itemsPerPageOptions || [10, 20, 50])
@@ -1021,18 +623,6 @@ async function cargarDatos(options = {}) {
       else cargarDatos({ silent: true })
       return
     }
-    if (isIncidentesView.value) {
-      const currentId = mapRecord.value ? getRecordId(mapRecord.value) : null
-      if (currentId != null) {
-        const stillThere = registros.value.find(r => String(getRecordId(r)) === String(currentId))
-        if (stillThere) {
-          mapRecord.value = stillThere
-          return
-        }
-      }
-      const withCoords = registros.value.find(r => hasCoords(r))
-      mapRecord.value = withCoords || registros.value[0] || null
-    }
   } catch (err) {
     if (!silent) {
       error.value = entityMessages.value.error
@@ -1111,159 +701,6 @@ async function copiarRegistro(item) {
   } catch {
     fallbackCopy(text)
   }
-}
-
-function parseCoord(value) {
-  if (value === null || value === undefined) return null
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  const normalized = value.toString().replace(',', '.')
-  const num = Number(normalized)
-  return Number.isFinite(num) ? num : null
-}
-
-function getCoords(item) {
-  if (!item) return null
-  const lat = parseCoord(item.Lat ?? item.lat)
-  const lng = parseCoord(item.Lng ?? item.lng)
-  if (lat == null || lng == null) return null
-  return { lat, lng }
-}
-
-function getAudioFilePath(item) {
-  if (!item) return ''
-  return item.Filepath || item.filepath || item.FilePath || item.filePath || ''
-}
-
-function hasAudioFile(item) {
-  return Boolean(getAudioFilePath(item))
-}
-
-function hasCoords(item) {
-  return Boolean(getCoords(item))
-}
-
-function abrirMapa(item) {
-  if (!item) return
-  mapRecord.value = item
-  const urls = mapUrls.value
-  if (!urls?.link) return
-  window.open(urls.link, '_blank', 'noopener')
-}
-
-async function abrirAudioPlayback(item) {
-  const id = getRecordId(item)
-  if (id == null) return
-  clearAudioPlayback()
-  audioPlayDialog.value = true
-  audioPlayLoading.value = true
-  audioPlayError.value = ''
-  audioPlayItem.value = item
-  try {
-    const token = localStorage.getItem('token') || ''
-    if (!token) {
-      audioPlayError.value = 'Token no disponible para reproducir.'
-      return
-    }
-    audioPlayUrl.value = runtimeApi.getIncidenteAudioStreamUrl(id, token)
-    audioPlayMime.value = 'audio/mpeg'
-  } catch (err) {
-    audioPlayError.value = 'No se pudo cargar el audio.'
-  } finally {
-    audioPlayLoading.value = false
-  }
-}
-
-function cerrarAudioPlayback() {
-  audioPlayDialog.value = false
-  clearAudioPlayback()
-}
-
-function clearAudioPlayback() {
-  if (audioPlayUrl.value) {
-    URL.revokeObjectURL(audioPlayUrl.value)
-  }
-  audioPlayUrl.value = ''
-  audioPlayMime.value = ''
-  audioPlayError.value = ''
-  audioPlayLoading.value = false
-  audioPlayItem.value = null
-}
-
-function onAudioPlayError(event) {
-  const media = event?.target
-  const code = media?.error?.code
-  const message = code === 1
-    ? 'Reproduccion abortada.'
-    : code === 2
-      ? 'Error de red al cargar el audio.'
-      : code === 3
-        ? 'Error al decodificar el audio.'
-        : code === 4
-          ? 'Formato de audio no soportado.'
-          : 'No se pudo reproducir el audio.'
-  audioPlayError.value = message
-}
-
-function getRecordId(item) {
-  if (!item || typeof item !== 'object') return null
-  const pk = pkField.value?.columnName
-  if (pk && item[pk] !== undefined) return item[pk]
-  if (item.id !== undefined) return item.id
-  const key = Object.keys(item).find(k => k.toLowerCase() === 'id')
-  return key ? item[key] : null
-}
-
-function updateRegistroLocal(id, patch) {
-  if (id == null) return
-  registros.value = registros.value.map(item => {
-    const currentId = getRecordId(item)
-    if (currentId == null || String(currentId) !== String(id)) return item
-    return { ...item, ...patch }
-  })
-}
-
-function isRetrying(item) {
-  const id = getRecordId(item)
-  return id != null && Boolean(retryingIds.value[id])
-}
-
-async function reintentarJob(item) {
-  const id = getRecordId(item)
-  if (id == null) return
-  retryingIds.value = { ...retryingIds.value, [id]: true }
-  try {
-    updateRegistroLocal(id, {
-      Status: 'processing',
-      Step: 'processing',
-      UpdateAt: new Date().toISOString()
-    })
-    await runtimeApi.retryIncidenteJob(id)
-    showToast('Job reintentado.', 'orange')
-    await cargarDatos({ silent: true })
-    startAutoRefresh()
-  } catch (err) {
-    showToast('No se pudo reintentar el job.', 'red')
-  } finally {
-    const next = { ...retryingIds.value }
-    delete next[id]
-    retryingIds.value = next
-  }
-}
-
-function shouldShowProgress(item, col) {
-  const key = String(col?.key || '').toLowerCase()
-  if (key !== 'status' && key !== 'step') return false
-  const raw = item?.[col?.key]
-  const value = raw == null ? '' : raw.toString().toLowerCase()
-  if (value === 'processing' || value === 'pending' || value === 'running' || value === 'queued') return true
-  if (key === 'status' && isRetrying(item)) return true
-  return false
-}
-
-function getStatusValue(item) {
-  if (!item || typeof item !== 'object') return ''
-  const raw = item.Status ?? item.status ?? item.Step ?? item.step ?? item.Estado ?? item.estado ?? ''
-  return raw == null ? '' : raw.toString().toLowerCase()
 }
 
 function formatValueForCopy(item, field) {
@@ -1362,224 +799,10 @@ function formattedCell(item, col) {
   return { text: value, isChip: false }
 }
 
-function abrirAudioDialog() {
-  audioDialog.value = true
-  audioError.value = ''
-  audioSuccess.value = false
-  audioJobId.value = null
-  audioProcessing.value = false
-  audioJobStatus.value = ''
-  audioJobLastError.value = ''
-}
-
-function cerrarAudioDialog() {
-  stopRecording(true)
-  clearRecording()
-  audioDialog.value = false
-  stopAudioPolling()
-}
-
-function preferredMimeType() {
-  const types = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-    'audio/ogg;codecs=opus',
-    'audio/ogg',
-    'audio/mp4'
-  ]
-  if (typeof window === 'undefined' || !window.MediaRecorder) return ''
-  for (const type of types) {
-    if (MediaRecorder.isTypeSupported(type)) return type
-  }
-  return ''
-}
-
-async function startRecording() {
-  audioError.value = ''
-  audioSuccess.value = false
-  audioJobId.value = null
-  if (!audioSupported.value) {
-    audioError.value = 'Grabacion no soportada por el navegador.'
-    return
-  }
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    const mimeType = preferredMimeType()
-    mediaRecorder = mimeType ? new MediaRecorder(mediaStream, { mimeType }) : new MediaRecorder(mediaStream)
-    audioChunks = []
-    mediaRecorder.ondataavailable = event => {
-      if (event.data && event.data.size > 0) audioChunks.push(event.data)
-    }
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: mediaRecorder?.mimeType || 'audio/webm' })
-      audioBlob.value = blob
-      audioMime.value = blob.type
-      audioUrl.value = URL.createObjectURL(blob)
-      audioChunks = []
-    }
-    mediaRecorder.start()
-    audioRecording.value = true
-  } catch (err) {
-    audioError.value = 'No se pudo acceder al microfono.'
-  }
-}
-
-function stopRecording(silent = false) {
-  try {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop()
-    }
-  } catch {
-    if (!silent) audioError.value = 'Error al detener la grabacion.'
-  } finally {
-    audioRecording.value = false
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(track => track.stop())
-      mediaStream = null
-    }
-  }
-}
-
-function clearRecording() {
-  if (audioUrl.value) {
-    URL.revokeObjectURL(audioUrl.value)
-  }
-  audioUrl.value = ''
-  audioBlob.value = null
-  audioMime.value = ''
-}
-
-function extensionForMime(mime) {
-  const type = (mime || '').toLowerCase()
-  if (type.includes('webm')) return 'webm'
-  if (type.includes('ogg')) return 'ogg'
-  if (type.includes('mp4') || type.includes('m4a')) return 'm4a'
-  if (type.includes('wav')) return 'wav'
-  return 'webm'
-}
-
-async function uploadRecording() {
-  if (!audioBlob.value) return
-  audioUploading.value = true
-  audioError.value = ''
-  audioSuccess.value = false
-  try {
-    const ext = extensionForMime(audioMime.value)
-    const file = new File([audioBlob.value], `audio_${Date.now()}.${ext}`, {
-      type: audioMime.value || 'audio/webm'
-    })
-    const formData = new FormData()
-    formData.append('audio', file)
-    if (audioDescripcion.value) {
-      formData.append('descripcion', audioDescripcion.value)
-    }
-    const { data } = await runtimeApi.uploadAudio(formData)
-    audioSuccess.value = true
-    audioJobId.value = data?.jobId || null
-    audioProcessing.value = true
-    audioJobStatus.value = 'pending'
-    audioJobLastError.value = ''
-    await cargarDatos()
-    startAudioPolling()
-  } catch (err) {
-    audioError.value = 'No se pudo enviar el audio.'
-  } finally {
-    audioUploading.value = false
-  }
-}
-
-function normalizeJob(job) {
-  if (!job || typeof job !== 'object') return null
-  const raw = job.raw || job
-  const keys = Object.keys(raw)
-  const lower = new Map(keys.map(k => [k.toLowerCase(), k]))
-  const pick = (...names) => {
-    for (const name of names) {
-      if (raw[name] !== undefined) return raw[name]
-      const match = lower.get(String(name).toLowerCase())
-      if (match) return raw[match]
-    }
-    return undefined
-  }
-  return {
-    id: pick('id'),
-    status: pick('status'),
-    step: pick('step'),
-    lastError: pick('lastError', 'lasterror'),
-    attempts: pick('attempts')
-  }
-}
-
-async function refreshAudioJobStatus() {
-  if (!audioJobId.value) return
-  try {
-    const { data } = await runtimeApi.list('incidente-jobs')
-    const items = Array.isArray(data) ? data : (data?.items || [])
-    const job = items.map(normalizeJob).find(j => j && String(j.id) === String(audioJobId.value))
-    if (!job) return
-    audioJobStatus.value = (job.status || '').toString().toLowerCase()
-    audioJobLastError.value = job.lastError || ''
-    if (audioJobStatus.value === 'done' || audioJobStatus.value === 'error') {
-      audioProcessing.value = false
-      stopAudioPolling()
-    }
-  } catch {
-    // si falla, dejamos de pollear para no saturar
-    stopAudioPolling()
-  }
-}
-
-function startAutoRefresh() {
-  stopAutoRefresh()
-  if (!autoRefreshEnabled.value) return
-  autoRefreshTimer = setInterval(async () => {
-    if (autoRefreshInFlight) return
-    autoRefreshInFlight = true
-    try {
-      await cargarDatos({ silent: true })
-    } finally {
-      autoRefreshInFlight = false
-    }
-  }, autoRefreshIntervalMs.value)
-}
-
-function stopAutoRefresh() {
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer)
-    autoRefreshTimer = null
-  }
-}
-
-function startAudioPolling() {
-  stopAudioPolling()
-  audioPollTimer = setInterval(async () => {
-    if (audioPollInFlight) return
-    audioPollInFlight = true
-    try {
-      await refreshAudioJobStatus()
-      await cargarDatos({ silent: true })
-    } finally {
-      audioPollInFlight = false
-    }
-  }, 3000)
-}
-
-function stopAudioPolling() {
-  if (audioPollTimer) {
-    clearInterval(audioPollTimer)
-    audioPollTimer = null
-  }
-}
-
 watch(
   () => entitySlug.value,
   () => resolverEntidad()
 )
-
-watch(autoRefreshEnabled, enabled => {
-  if (enabled) startAutoRefresh()
-  else stopAutoRefresh()
-})
 
 // Con paginación del servidor, cambiar de página, de tamaño o la búsqueda vuelve a pedir datos
 let esperaBusqueda = null
@@ -1599,26 +822,12 @@ watch(search, () => {
   }, 300)
 })
 
-watch(audioPlayDialog, open => {
-  if (!open) clearAudioPlayback()
-})
-
 onMounted(() => {
   normalizeConfig()
   if (config.value?.system?.defaultItemsPerPage) {
     itemsPerPage.value = config.value.system.defaultItemsPerPage
   }
   resolverEntidad()
-  if (autoRefreshEnabled.value) {
-    startAutoRefresh()
-  }
-})
-
-onBeforeUnmount(() => {
-  stopRecording(true)
-  stopAudioPolling()
-  stopAutoRefresh()
-  clearAudioPlayback()
 })
 </script>
 
@@ -1727,19 +936,6 @@ onBeforeUnmount(() => {
   vertical-align: middle;
 }
 
-.row-selected {
-  background: var(--sb-primary-soft);
-}
-
-.map-embed iframe {
-  border-radius: 10px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
-}
-
-.map-card :deep(.v-card-title) {
-  font-weight: 600;
-}
-
 .cell-text {
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1748,10 +944,6 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   word-break: break-word;
   max-width: 260px;
-}
-
-.audio-player {
-  width: 100%;
 }
 
 .actions-td {

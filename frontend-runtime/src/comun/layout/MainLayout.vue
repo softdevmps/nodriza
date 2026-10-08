@@ -50,44 +50,14 @@ const menuItems = computed(() => {
     }
   ]
 
-  const incidentesGroup = {
-    id: 'group-incidentes',
-    titulo: 'Incidentes',
-    icono: 'mdi-folder-multiple-outline',
-    children: []
-  }
-
-  const isIncidenteRelated = entity => {
-    const name = String(entity?.name || '').toLowerCase()
-    const label = String(entity?.menuLabel || '').toLowerCase()
-    const slug = String(entityRoute(entity) || '').toLowerCase()
-    return (
-      name.includes('incidente') ||
-      label.includes('incidente') ||
-      slug.includes('incidente') ||
-      name.includes('catalogohechos') ||
-      label.includes('catalogohechos')
-    )
-  }
-
   entities.forEach(entity => {
-    const menuItem = {
+    items.push({
       id: entity.entityId ?? entity.id ?? entity.name,
       titulo: prettyTitle(entity.menuLabel || entity.displayName || entity.name),
       icono: entity.menuIcon || 'mdi-table',
       ruta: `/${entityRoute(entity)}`
-    }
-
-    if (isIncidenteRelated(entity)) {
-      incidentesGroup.children.push(menuItem)
-    } else {
-      items.push(menuItem)
-    }
+    })
   })
-
-  if (incidentesGroup.children.length) {
-    items.push(incidentesGroup)
-  }
 
   return items
 })

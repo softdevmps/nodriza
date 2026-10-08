@@ -202,7 +202,7 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 | ✅ 3.5 | Puertos configurables (base en `.env`) y detección de puerto ocupado | S | No hay choques |
 | ✅ 3.6 | Limpiar los restos `AUDIO_*` y la opción EF Core (implementarla o quitarla) | S | La config solo muestra lo que existe |
 | 3.7 | El login de los sistemas generados muestra "Registrarse" siempre, pero su backend trae el registro cerrado (`REGISTRO_PUBLICO=false`): agregar `/auth/opciones` al backend generado y ocultar el botón como en la fábrica (encontrado en 4.5) | S | El botón solo aparece si el registro está abierto |
-| 3.8 | La pantalla de datos de los sistemas generados (`frontend-runtime/.../SistemaRuntime.vue`) arrastra código de otro proyecto: vista "incidentes" con mapa, grabación de audio y polling de `incidente-jobs` (~190 referencias). Sacarlo o convertirlo en una opción real (encontrado en 3.4) | M | La plantilla solo tiene lo genérico |
+| ✅ 3.8 | ~~La plantilla de los sistemas generados arrastraba código del sistema de mapeo~~ (hecho: se quitaron la vista "incidentes" con mapa, la grabación y reproducción de audio, los jobs, el auto-refresco y el home de incidentes; el home ahora muestra una tarjeta por entidad). `SistemaRuntime.vue` pasó de 1749 a 995 líneas | M | La plantilla solo tiene lo genérico |
 
 ### Fase 4 — Mantenibilidad
 
@@ -256,4 +256,4 @@ Cada arreglo de la Fase 1 se da por terminado cuando su prueba pasa en verde.
 
 1. Mergear en orden: `refactor/estructura-por-modulos` → `fix/autorizacion-admin-y-decimales` → `chore/fase-2-calidad` (0.1).
 2. **Fase 4:** ✅ completa.
-3. **Fase 3 pendiente:** renombrados en el diseño (L1), registro en el login generado (3.7) y limpiar el runtime generado (3.8).
+3. **Fase 3 pendiente:** renombrados en el diseño (L1), y registro en el login generado (3.7).
