@@ -8,6 +8,10 @@ namespace Backend.Controllers
     [ApiController]
     public class AuthController : AppController
     {
+        /// <summary>Opciones públicas para la pantalla de login (si se muestra "Registrarse").</summary>
+        [HttpGet(Routes.v1.Auth.Opciones)]
+        public IActionResult Opciones() => Ok(new { registroPublico = AppConfig.REGISTRO_PUBLICO });
+
         [HttpPost(Routes.v1.Auth.Registrar)]
         public IActionResult Registrar([FromBody] RegistrarRequest model)
         {

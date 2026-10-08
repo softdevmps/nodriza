@@ -201,7 +201,7 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 | ✅ 3.4 | Paginación del lado del servidor (hecho: la fábrica pagina, busca, filtra y ordena en SQL con el total en `X-Total-Count`; los sistemas generados lo hacen cuando su entidad tiene paginación activada, y si no siguen como antes) | M | Listar trae solo la página pedida |
 | ✅ 3.5 | Puertos configurables (base en `.env`) y detección de puerto ocupado | S | No hay choques |
 | ✅ 3.6 | Limpiar los restos `AUDIO_*` y la opción EF Core (implementarla o quitarla) | S | La config solo muestra lo que existe |
-| 3.7 | El login de los sistemas generados muestra "Registrarse" siempre, pero su backend trae el registro cerrado (`REGISTRO_PUBLICO=false`): agregar `/auth/opciones` al backend generado y ocultar el botón como en la fábrica (encontrado en 4.5) | S | El botón solo aparece si el registro está abierto |
+| ✅ 3.7 | ~~El login generado mostraba "Registrarse" con el registro cerrado~~ (hecho: el backend generado expone `GET /auth/opciones` y el login muestra "Crear cuenta" solo si `REGISTRO_PUBLICO=true`) | S | El botón solo aparece si el registro está abierto |
 | ✅ 3.8 | ~~La plantilla de los sistemas generados arrastraba código del sistema de mapeo~~ (hecho: se quitaron la vista "incidentes" con mapa, la grabación y reproducción de audio, los jobs, el auto-refresco y el home de incidentes; el home ahora muestra una tarjeta por entidad). `SistemaRuntime.vue` pasó de 1749 a 995 líneas | M | La plantilla solo tiene lo genérico |
 
 ### Fase 4 — Mantenibilidad

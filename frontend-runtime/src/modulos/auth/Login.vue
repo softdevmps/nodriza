@@ -82,7 +82,7 @@
             </v-form>
           </v-card-text>
 
-          <v-card-actions class="justify-center">
+          <v-card-actions v-if="registroPublico" class="justify-center">
             <v-btn variant="text" @click="$router.push('/register')">
               Crear cuenta
             </v-btn>
@@ -94,7 +94,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authService } from './auth.service'
 import frontendConfig from '../../comun/config/frontend-config.json'
@@ -108,6 +108,16 @@ const appTitle = computed(() => frontendConfig?.system?.appTitle || 'Sistema')
 const uiModeLabel = computed(() => frontendConfig?.system?.uiMode || 'Enterprise')
 const tagline = computed(() => frontendConfig?.system?.tagline || 'Tu plataforma configurable para gestionar datos en tiempo real.')
 const platformLabel = computed(() => `${appTitle.value} · CRUD · API`)
+
+// "Registrarse" solo aparece si el backend tiene el registro abierto (REGISTRO_PUBLICO=true)
+const registroPublico = ref(false)
+onMounted(async () => {
+  try {
+    registroPublico.value = (await authService.opciones()).data?.registroPublico === true
+  } catch {
+    registroPublico.value = false
+  }
+})
 
 async function login() {
   error.value = ''

@@ -376,6 +376,7 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
             sb.AppendLine("            {");
             sb.AppendLine($"                public const string Login = \"{basePath}/auth/login\";");
             sb.AppendLine($"                public const string Registrar = \"{basePath}/auth/registrar\";");
+            sb.AppendLine($"                public const string Opciones = \"{basePath}/auth/opciones\";");
             sb.AppendLine("            }");
             sb.AppendLine();
             sb.AppendLine("            public static class DevTools");

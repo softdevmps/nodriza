@@ -24,5 +24,10 @@ export const authService = {
 
   register(data) {
     return resolveAuthClient().post('/auth/registrar', data)
+  },
+
+  // Público: indica si el registro está habilitado (por defecto, cerrado)
+  opciones() {
+    return resolveAuthClient().get('/auth/opciones')
   }
 }
