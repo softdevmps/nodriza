@@ -1,8 +1,9 @@
 import api from '../../comun/api/axios'
 
 export default {
-  list(route) {
-    return api.get(`/${route}`)
+  // params (opcional): { take, skip, search }. Si la API pagina, el total viene en X-Total-Count.
+  list(route, params) {
+    return api.get(`/${route}`, { params })
   },
 
   get(route, id) {

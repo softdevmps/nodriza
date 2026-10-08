@@ -710,6 +710,18 @@ namespace Backend.Modulos.Sistemas.GeneradorBackend
 
             return list;";
 
+            // Con paginación, el controller informa el total (sin paginar) en el header X-Total-Count
+            var countMethod = config.Pagination
+                ? $@"
+
+        public static int ContarTodos(string? search)
+        {{
+            using var conn = Db.Open();
+            using var cmd = new SqlCommand(""SELECT COUNT(*) FROM [{schema}].[{tableName}]{whereSql}"", conn);
+{(hasSearch ? "            cmd.Parameters.AddWithValue(\"@search\", string.IsNullOrWhiteSpace(search) ? (object)DBNull.Value : $\"%{{search}}%\");\n" : string.Empty)}            return (int)cmd.ExecuteScalar();
+        }}"
+                : string.Empty;
+
             var createValidation = new StringBuilder();
             var relationByColumn = new Dictionary<string, RelationCheck>(StringComparer.OrdinalIgnoreCase);
             foreach (var rel in relationChecks)
@@ -828,7 +840,7 @@ namespace Backend.Negocio.Gestores
         {listMethodSignature}
         {{
 {listMethodBody}
-        }}
+        }}{countMethod}
 
         public static {entityName}Response? ObtenerPorId({pkType} id)
         {{
@@ -922,7 +934,8 @@ namespace Backend.Negocio.Gestores
                 methods.AppendLine($@"{BuildAuthorizeAttribute(listAuth)}        [HttpGet(Routes.v1.{entityName}.Obtener)]
         {listSignature}
         {{
-            var items = {listCall};
+            var items = {listCall};{(config.Pagination ? $@"
+            Response.Headers[""X-Total-Count""] = {entityName}Gestor.ContarTodos(search).ToString();" : string.Empty)}
             return Ok(items);
         }}
 ");

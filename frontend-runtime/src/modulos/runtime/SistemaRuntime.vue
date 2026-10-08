@@ -182,6 +182,8 @@
             :fixed-header="listStickyHeader"
             :height="listStickyHeader ? 420 : undefined"
             :no-data-text="entityMessages.empty"
+            :items-per-page="-1"
+            hide-default-footer
             hover
           >
             <template #item="{ item, columns }">
@@ -302,7 +304,7 @@
           </v-data-table>
 
           <div v-if="listShowTotals" class="px-4 pt-2 text-caption text-medium-emphasis">
-            Total: {{ sortedRegistros.length }} registros
+            Total: {{ totalRegistros }} registros
           </div>
 
           <v-row class="px-4 pb-4 pt-2 align-center" dense>
@@ -504,6 +506,10 @@ const isDark = computed(() => {
 const config = ref(JSON.parse(JSON.stringify(frontendConfig || {})))
 
 const registros = ref([])
+// Si la API de la entidad pagina (responde X-Total-Count), registros es solo la página actual
+// y la búsqueda la hace el servidor. Si no, llega todo y se filtra/pagina acá.
+const paginadoServidor = ref(false)
+const totalServidor = ref(0)
 const loading = ref(false)
 const error = ref('')
 
@@ -815,7 +821,8 @@ const audioSupported = computed(() => {
 const itemsPerPageOptions = computed(() => config.value?.system?.itemsPerPageOptions || [10, 20, 50])
 
 const showSearch = computed(() => config.value?.system?.showSearch !== false)
-const showFilters = computed(() => config.value?.system?.showFilters !== false)
+// El filtro por campo es del lado del navegador: con paginación del servidor solo queda "Buscar"
+const showFilters = computed(() => config.value?.system?.showFilters !== false && !paginadoServidor.value)
 
 const filterFields = computed(() => listFields.value.filter(f => f.showInFilter !== false).map(f => ({
   title: f.label || f.name || f.columnName,
@@ -824,6 +831,7 @@ const filterFields = computed(() => listFields.value.filter(f => f.showInFilter 
 
 const filteredRegistros = computed(() => {
   let items = [...registros.value]
+  if (paginadoServidor.value) return items // el servidor ya buscó
 
   if (search.value) {
     const term = search.value.toLowerCase()
@@ -875,12 +883,15 @@ const sortedRegistros = computed(() => {
   return items
 })
 
+const totalRegistros = computed(() => paginadoServidor.value ? totalServidor.value : sortedRegistros.value.length)
+
 const pageCount = computed(() => {
-  const total = sortedRegistros.value.length
+  const total = totalRegistros.value
   return total === 0 ? 1 : Math.ceil(total / itemsPerPage.value)
 })
 
 const paginatedRegistros = computed(() => {
+  if (paginadoServidor.value) return sortedRegistros.value
   const start = (page.value - 1) * itemsPerPage.value
   const end = start + itemsPerPage.value
   return sortedRegistros.value.slice(start, end)
@@ -962,6 +973,8 @@ function resolverEntidad() {
   }
 
   entidadSeleccionada.value = target
+  paginadoServidor.value = false
+  page.value = 1
   cargarDatos()
 }
 
@@ -970,6 +983,7 @@ function irEntidad(entidad) {
   router.push(`/${slug}`)
 }
 
+let ultimaConsulta = 0
 async function cargarDatos(options = {}) {
   if (!entidadSeleccionada.value) return
   const silent = options.silent === true
@@ -977,10 +991,36 @@ async function cargarDatos(options = {}) {
     loading.value = true
     error.value = ''
   }
+  const consulta = ++ultimaConsulta
   try {
-    const { data } = await runtimeApi.list(apiRoute.value)
+    // take/skip siempre: una API sin paginación los ignora. search solo si el servidor pagina,
+    // porque busca únicamente en los campos marcados como filtro en la config del backend.
+    const response = await runtimeApi.list(apiRoute.value, {
+      take: itemsPerPage.value,
+      skip: (page.value - 1) * itemsPerPage.value,
+      search: paginadoServidor.value && search.value ? search.value : undefined
+    })
+    if (consulta !== ultimaConsulta) return // llegó tarde: ya se pidió otra página o búsqueda
+    const { data } = response
     const items = Array.isArray(data) ? data : (data?.items || [])
     registros.value = items.map(item => normalizeRecord(item))
+    const total = response.headers?.['x-total-count']
+    const eraPaginado = paginadoServidor.value
+    paginadoServidor.value = total != null
+    totalServidor.value = Number(total ?? items.length)
+    const pedidas = itemsPerPage.value
+    if (paginadoServidor.value && items.length > 0 && items.length < pedidas &&
+        (page.value - 1) * pedidas + items.length < totalServidor.value) {
+      // La API tiene un máximo de filas por página menor al elegido: se usa ese (y se recarga)
+      itemsPerPage.value = items.length
+      return
+    }
+    if (paginadoServidor.value && (!eraPaginado ? search.value : page.value > pageCount.value)) {
+      // Recién se supo que pagina y ya había búsqueda, o se borró lo último de la última página
+      if (page.value > pageCount.value) page.value = pageCount.value
+      else cargarDatos({ silent: true })
+      return
+    }
     if (isIncidentesView.value) {
       const currentId = mapRecord.value ? getRecordId(mapRecord.value) : null
       if (currentId != null) {
@@ -1541,8 +1581,22 @@ watch(autoRefreshEnabled, enabled => {
   else stopAutoRefresh()
 })
 
+// Con paginación del servidor, cambiar de página, de tamaño o la búsqueda vuelve a pedir datos
+let esperaBusqueda = null
+watch(page, () => {
+  if (paginadoServidor.value) cargarDatos({ silent: true })
+})
 watch(itemsPerPage, () => {
-  page.value = 1
+  if (page.value !== 1) page.value = 1
+  else if (paginadoServidor.value) cargarDatos({ silent: true })
+})
+watch(search, () => {
+  if (!paginadoServidor.value) return
+  clearTimeout(esperaBusqueda)
+  esperaBusqueda = setTimeout(() => {
+    if (page.value !== 1) page.value = 1
+    else cargarDatos({ silent: true })
+  }, 300)
 })
 
 watch(audioPlayDialog, open => {

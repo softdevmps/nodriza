@@ -148,7 +148,7 @@ cd frontend && npm install && npm run dev   # entrar con admin/admin
 |---|---|---|
 | L1 | Renombrar un campo o tabla en el diseño no renombra la columna real: se crea una nueva y la vieja queda (con sus datos) como opcional. | No se pierden datos. Un renombrado automático necesita registrar el nombre anterior: va a Fase 3. |
 | L2 | Las migraciones no achican, no convierten tipos con pérdida ni borran columnas: esos cambios se rechazan con un mensaje claro. | Decisión: nunca truncar ni perder datos en silencio. |
-| L3 | El runtime de la fábrica todavía pagina en el navegador. El backend ya soporta `take`/`skip`. | Pasar la UI a paginación del servidor (Fase 3). |
+| ✅ L3 | ~~El runtime pagina en el navegador~~: resuelto en Fase 3.4. Queda: con paginación, la API generada busca solo en los campos marcados como filtro y no tiene filtro por campo (la pantalla lo oculta). | |
 | L4 | El bloqueo por fuerza bruta vive en memoria. | Alcanza con una instancia; con varias habría que moverlo a un store compartido. |
 | L5 | Los sistemas generados comparten la tabla de usuarios `dbo.Usuarios` con la fábrica (solo lectura + alta, con permisos mínimos). | Diseño actual: usuarios centralizados. |
 | L6 | ManyToMany y OneToMany no están disponibles. | Decisión: se quitaron hasta implementarlas completas (tabla intermedia + UI + generadores). |
@@ -198,10 +198,11 @@ Criterio general: las suites correspondientes de `pruebas-e2e` pasan en verde.
 | ✅ 3.1 | Publicar con **migraciones** (hecho: cambios seguros automáticos; inseguros se rechazan. Falta: renombrar y preview, ver L1/L2): detectar diferencias entre la metadata y la tabla real (agregar, cambiar tipo o nulabilidad, renombrar, borrar), mostrar un preview del SQL y aplicarlo con confirmación | L | Cambiar un campo y republicar actualiza la tabla |
 | ✅ 3.2 | Borrar un sistema (hecho: se **archiva**, decisión del 2026-10-07) también borra el schema y la carpeta (opcional, con confirmación) | S | No quedan restos |
 | ✅ 3.3 | Relaciones (hecho: se quitaron los tipos no soportados): implementar ManyToMany (tabla intermedia) o sacar del diseño los tipos que no se soportan | M | El diseño refleja lo que realmente se crea |
-| 3.4 | Paginación del lado del servidor en la UI del runtime (el backend ya la soporta, ver L3) | M | Listar trae solo la página pedida |
+| ✅ 3.4 | Paginación del lado del servidor (hecho: la fábrica pagina, busca, filtra y ordena en SQL con el total en `X-Total-Count`; los sistemas generados lo hacen cuando su entidad tiene paginación activada, y si no siguen como antes) | M | Listar trae solo la página pedida |
 | ✅ 3.5 | Puertos configurables (base en `.env`) y detección de puerto ocupado | S | No hay choques |
 | ✅ 3.6 | Limpiar los restos `AUDIO_*` y la opción EF Core (implementarla o quitarla) | S | La config solo muestra lo que existe |
 | 3.7 | El login de los sistemas generados muestra "Registrarse" siempre, pero su backend trae el registro cerrado (`REGISTRO_PUBLICO=false`): agregar `/auth/opciones` al backend generado y ocultar el botón como en la fábrica (encontrado en 4.5) | S | El botón solo aparece si el registro está abierto |
+| 3.8 | La pantalla de datos de los sistemas generados (`frontend-runtime/.../SistemaRuntime.vue`) arrastra código de otro proyecto: vista "incidentes" con mapa, grabación de audio y polling de `incidente-jobs` (~190 referencias). Sacarlo o convertirlo en una opción real (encontrado en 3.4) | M | La plantilla solo tiene lo genérico |
 
 ### Fase 4 — Mantenibilidad
 
@@ -255,4 +256,4 @@ Cada arreglo de la Fase 1 se da por terminado cuando su prueba pasa en verde.
 
 1. Mergear en orden: `refactor/estructura-por-modulos` → `fix/autorizacion-admin-y-decimales` → `chore/fase-2-calidad` (0.1).
 2. **Fase 4:** ✅ completa.
-3. **Fase 3 pendiente:** paginación del servidor en la UI del runtime (3.4) y renombrados en el diseño (L1).
+3. **Fase 3 pendiente:** renombrados en el diseño (L1), registro en el login generado (3.7) y limpiar el runtime generado (3.8).
