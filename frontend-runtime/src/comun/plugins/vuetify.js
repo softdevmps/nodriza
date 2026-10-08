@@ -3,7 +3,7 @@ import 'vuetify/styles'
 
 // Vuetify core
 import { createVuetify } from 'vuetify'
-import frontendConfig from '../config/frontend-config.json'
+import frontendConfig from '@config/frontend-config.json'
 
 // Components & directives (CLAVE)
 import * as components from 'vuetify/components'

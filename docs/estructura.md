@@ -51,6 +51,14 @@ backend/
         └── Herramientas/       Iniciar/detener backend y frontend generados y sus logs (ProcesosSistemas, LogsProcesos)
 ```
 
+### Lo que se comparte con los sistemas generados (`@runtime`)
+
+El header, el sidebar (`AppHeader`, `AppSidebar`, `SidebarItem`), el plugin de Vuetify, `estilos/systembase.css` y `utils/slug.js` existen **una sola vez**, en `frontend-runtime/src/comun/`. La fábrica los importa con el alias `@runtime/...` (definido en `frontend/vite.config.js`). Un cambio ahí se ve en la fábrica y en los sistemas que se generen después.
+
+Esos archivos compartidos leen la config con `@config/frontend-config.json`. Cada app resuelve `@config` a su propio `src/comun/config/`, así la fábrica muestra "SystemBase" y cada sistema su propio título.
+
+Si un archivo compartido necesita importar algo nuevo de `node_modules`, agregalo a `resolve.dedupe` en `frontend/vite.config.js`. Si no, la fábrica lo busca en `frontend-runtime/node_modules` (que en CI no existe) y puede terminar cargando Vue dos veces.
+
 ### Cómo es un módulo por dentro
 
 Todos los módulos tienen la misma forma:
@@ -94,10 +102,10 @@ src/
 ├── router/index.js         Todas las rutas de pantalla
 ├── comun/                  Lo que usa toda la app
 │   ├── api/axios.js            Cliente HTTP (URL del backend + token)
-│   ├── layout/                 MainLayout, header y sidebar
+│   ├── layout/                 MainLayout (header y sidebar vienen de @runtime, ver abajo)
 │   ├── store/menu.store.js     Estado del menú lateral
 │   ├── config/                 frontend-config.json
-│   ├── plugins/ · estilos/ · utils/
+│   ├── utils/                  menuNaming.js, mensajeError.js
 └── modulos/
     ├── auth/        Login.vue, Register.vue, auth.service.js
     ├── home/        Home.vue
@@ -116,6 +124,14 @@ Para cambiar algo de una pestaña: el template está en su `Tab*.vue` y la funci
 
 La URL de la API se puede cambiar con `VITE_API_URL` (por defecto `http://localhost:5032/api/v1`).
 
+### Lo que se comparte con los sistemas generados (`@runtime`)
+
+El header, el sidebar (`AppHeader`, `AppSidebar`, `SidebarItem`), el plugin de Vuetify, `estilos/systembase.css` y `utils/slug.js` existen **una sola vez**, en `frontend-runtime/src/comun/`. La fábrica los importa con el alias `@runtime/...` (definido en `frontend/vite.config.js`). Un cambio ahí se ve en la fábrica y en los sistemas que se generen después.
+
+Esos archivos compartidos leen la config con `@config/frontend-config.json`. Cada app resuelve `@config` a su propio `src/comun/config/`, así la fábrica muestra "SystemBase" y cada sistema su propio título.
+
+Si un archivo compartido necesita importar algo nuevo de `node_modules`, agregalo a `resolve.dedupe` en `frontend/vite.config.js`. Si no, la fábrica lo busca en `frontend-runtime/node_modules` (que en CI no existe) y puede terminar cargando Vue dos veces.
+
 ### Cómo es un módulo por dentro
 
 - **`.vue` en la raíz del módulo** = pantalla (tiene ruta en `router/index.js`).
@@ -128,7 +144,7 @@ Cuando se crea un menú hijo desde la pantalla Menu, el backend (`Modulos/Menu/M
 
 ## Plantilla de frontends generados (`frontend-runtime/src/`)
 
-Tiene la misma estructura que `frontend/`, pero solo con lo que necesita un sistema generado: `comun/`, `modulos/auth`, `modulos/home` y `modulos/runtime` (la pantalla de datos). El generador (`Modulos/Sistemas/GeneradorFrontend`) la copia a `systems/<slug>/frontend`. Después reescribe dos archivos: `src/comun/api/axios.js` y `src/comun/config/frontend-config.json`. Si los movés, actualizá el generador.
+Tiene la misma estructura que `frontend/`, pero solo con lo que necesita un sistema generado: `comun/`, `modulos/auth`, `modulos/home` y `modulos/runtime` (la pantalla de datos). Parte de `comun/` también la usa la fábrica (ver "Lo que se comparte" arriba), así que al tocar el layout probá las dos apps. El generador (`Modulos/Sistemas/GeneradorFrontend`) la copia a `systems/<slug>/frontend`. Después reescribe dos archivos: `src/comun/api/axios.js` y `src/comun/config/frontend-config.json`. Si los movés, actualizá el generador.
 
 ## Tests (`tests/Backend.Tests/`)
 

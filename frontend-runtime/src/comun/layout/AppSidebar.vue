@@ -29,7 +29,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import SidebarItem from './SidebarItem.vue'
-import frontendConfig from '../config/frontend-config.json'
+import frontendConfig from '@config/frontend-config.json'
 
 const props = defineProps({
   drawer: {

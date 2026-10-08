@@ -252,7 +252,7 @@ import relacionService from './relacion.service.js'
 import frontendConfigService from './frontend-config.service.js'
 import baseFrontendConfig from '../../comun/config/frontend-config.json'
 import RegistroDialog from './componentes/RegistroDialog.vue'
-import { toKebab } from '../../comun/utils/slug.js'
+import { toKebab } from '@runtime/comun/utils/slug.js'
 
 const route = useRoute()
 const router = useRouter()

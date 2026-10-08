@@ -6,7 +6,7 @@ import entidadService from '../entidad.service.js'
 import campoService from '../campo.service.js'
 import relacionService from '../relacion.service.js'
 import backendConfigService from '../backend-config.service.js'
-import { toKebab } from '../../../comun/utils/slug.js'
+import { toKebab } from '@runtime/comun/utils/slug.js'
 import { useMenuStore } from '../../../comun/store/menu.store.js'
 
 /**

@@ -7,7 +7,7 @@
 <script setup>
 import { computed, ref, watchEffect, provide } from 'vue'
 import frontendConfig from './comun/config/frontend-config.json'
-import { vuetify } from './comun/plugins/vuetify'
+import { vuetify } from '@runtime/comun/plugins/vuetify'
 
 const system = frontendConfig?.system || {}
 const theme = frontendConfig?.theme || {}
@@ -69,6 +69,10 @@ provide('colorMode', {
 </script>
 
 <style>
+:root {
+  color-scheme: light;
+}
+
 .app-shell {
   min-height: 100vh;
   font-family: var(--sb-font);

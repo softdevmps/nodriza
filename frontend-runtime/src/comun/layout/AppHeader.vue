@@ -32,7 +32,7 @@
 <script setup>
 import { computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
-import frontendConfig from '../config/frontend-config.json'
+import frontendConfig from '@config/frontend-config.json'
 
 const router = useRouter()
 const colorMode = inject('colorMode', null)

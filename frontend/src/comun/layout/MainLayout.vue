@@ -4,6 +4,7 @@
 
     <AppSidebar
       :drawer="drawer"
+      :menu="state.tree"
       @update:drawer="drawer = $event"
     />
 
@@ -18,8 +19,8 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppHeader from './AppHeader.vue'
-import AppSidebar from './AppSidebar.vue'
+import AppHeader from '@runtime/comun/layout/AppHeader.vue'
+import AppSidebar from '@runtime/comun/layout/AppSidebar.vue'
 import { useMenuStore } from '../store/menu.store.js'
 
 const drawer = ref(true)
